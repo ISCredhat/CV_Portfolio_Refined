@@ -1,0 +1,4 @@
+period,n_trades,trades_per_month,win_rate,median_hold_hours,gross_bps_per_trade,cost_bps_per_trade,avg_leg_cost_bps,exit_reversion,exit_month_end,exit_time_stop,exit_stop_loss
+validation,66.0000,3.3000,0.6364,120.0000,95.0986,5.7170,2.8585,0.6515,0.1667,0.1515,0.0303
+oos,81.0000,2.3824,0.5432,120.0000,40.6368,10.3007,5.1503,0.5185,0.1605,0.1728,0.1481
+full,147.0000,2.7222,0.5850,120.0000,65.0890,8.2427,4.1214,0.5782,0.1633,0.1633,0.0952

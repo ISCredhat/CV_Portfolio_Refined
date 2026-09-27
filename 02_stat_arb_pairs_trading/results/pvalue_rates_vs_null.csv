@@ -1,0 +1,4 @@
+threshold,within_industry,any_two_stocks,no_cointegration_null
+0.0100,0.0205,0.0164,0.0095
+0.0500,0.0579,0.0552,0.0525
+0.1000,0.1015,0.0988,0.0975

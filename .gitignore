@@ -1,0 +1,27 @@
+# Data & caches (keep raw data out of GitHub; document sources in each data/README.md)
+**/data/*
+!**/data/README.md
+*.csv
+*.csv.gz
+*.parquet
+*.pkl
+*.duckdb
+*_cache/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# Secrets & binaries
+.env
+*.exe
+03_intraday_anomaly_replication/
+04_cocoa_satellite_alpha/
+
+# Environments / IDE
+venv/
+.venv/
+.idea/
+.vscode/
+
+# Allow small, curated result files
+!**/results/*.csv

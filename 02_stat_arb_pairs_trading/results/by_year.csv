@@ -1,0 +1,6 @@
+year,strategy_net_return,strategy_gross_return,all_variants_net_return,spy_return,strategy_net_sharpe,strategy_gross_sharpe,all_variants_net_sharpe,spy_sharpe,months
+2021,0.1117,0.1179,0.0427,0.1496,2.3547,2.4708,1.2114,1.7520,May-Dec
+2022,0.1302,0.1431,0.0467,-0.1818,1.3519,1.4733,0.8897,-0.7096,Jan-Dec
+2023,0.0821,0.0938,-0.0055,0.2618,1.2894,1.4691,-0.0857,1.8583,Jan-Dec
+2024,0.0245,0.0339,-0.0456,0.2489,0.4794,0.6519,-0.9426,1.8316,Jan-Dec
+2025,-0.0177,-0.0018,-0.1299,0.1740,-0.1000,0.0487,-1.5251,1.0384,Jan-Oct

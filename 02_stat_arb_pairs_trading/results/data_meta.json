@@ -1,0 +1,13 @@
+{
+  "n_tickers": 100,
+  "n_days": 1255,
+  "n_minutes": 462330,
+  "first_day": "2020-11-06",
+  "last_day": "2025-11-05",
+  "n_split_events": 22,
+  "n_overnight_jumps": 69,
+  "n_jumps_explained": 16,
+  "n_days_session_to_1500": 422,
+  "n_days_early_close": 10,
+  "yahoo_median_abs_diff_bps": 3.994773508077354
+}

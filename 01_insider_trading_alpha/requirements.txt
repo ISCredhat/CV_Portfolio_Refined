@@ -1,0 +1,11 @@
+# analysis pipeline (scripts/run_pipeline.py)
+numpy>=1.26
+pandas>=2.2
+scipy>=1.11
+scikit-learn>=1.4
+matplotlib>=3.8
+# data download only (scripts/download_data.py)
+requests>=2.31
+yfinance>=0.2.54
+# tests (optional; tests/test_pipeline.py also runs without pytest)
+pytest>=8

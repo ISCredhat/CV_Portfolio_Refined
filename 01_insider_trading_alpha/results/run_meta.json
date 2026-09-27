@@ -1,0 +1,53 @@
+{
+  "n_purchase_events": 108751,
+  "n_sale_events": 370719,
+  "first_filing": "2010-01-04",
+  "last_filing": "2026-03-31",
+  "best_model": "gbm",
+  "oos_start": "2016-01-05",
+  "skill_q5_minus_q1": 0.009927298557046242,
+  "skill_q5_minus_q1_t": 0.9725288529958465,
+  "fama_macbeth": {
+    "const": {
+      "coef_per_1sd": 0.0038990088281442696,
+      "t": 1.007748346903752
+    },
+    "tr_shrunk": {
+      "coef_per_1sd": 0.00206470153706945,
+      "t": 0.9471734099531975
+    },
+    "log_value": {
+      "coef_per_1sd": -0.00040712110615931407,
+      "t": -0.21287675336707593
+    },
+    "own_chg": {
+      "coef_per_1sd": -0.0007197793981533465,
+      "t": -0.5216918323087462
+    },
+    "cluster_insiders_30d": {
+      "coef_per_1sd": -0.0022462591697627048,
+      "t": -1.0850122283848902
+    },
+    "log_adv": {
+      "coef_per_1sd": 0.002224395048345484,
+      "t": 0.928455179422616
+    },
+    "mom_6m_skip1m": {
+      "coef_per_1sd": 0.0030752997324768327,
+      "t": 1.0111177575018284
+    },
+    "vol_3m": {
+      "coef_per_1sd": -0.0027494137355210968,
+      "t": -0.5579981723047509
+    }
+  },
+  "n_raw_lines": 1970299,
+  "n_clean_lines": 1766959,
+  "n_purchase_events_all": 224096,
+  "n_sale_events_all": 628422,
+  "n_tickers_priced": 5420,
+  "n_price_spikes_removed": 2418,
+  "price_start": "2009-01-02",
+  "price_end": "2026-09-23",
+  "missing_share_delisted": 0.916
+}

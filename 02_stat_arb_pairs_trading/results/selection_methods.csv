@@ -1,0 +1,5 @@
+selection,full,oos,validation
+"Cointegration, within industry (strategy)",0.8584,0.3932,1.6617
+Distance / SSD (Gatev et al.),-0.1073,-0.6625,0.7692
+"Cointegration, any industry",1.3566,1.5833,1.1093
+Random within-industry pairs (median of 100),0.0038,-0.0617,0.0960

@@ -1,0 +1,6 @@
+fill,full_net_sharpe,full_gross_sharpe,oos_net_sharpe
+"At the signal bar's closing price (no delay, optimistic)",0.4838,0.6185,-0.1254
+Close of the next 1-minute bar (base case),0.8584,0.9953,0.3932
+5 minutes after the signal,0.8884,1.0287,0.4184
+15 minutes after the signal,0.8013,0.9409,0.3745
+Close of the next bar,0.4442,0.5826,-0.0747

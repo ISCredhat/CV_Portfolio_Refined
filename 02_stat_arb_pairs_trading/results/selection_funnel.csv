@@ -1,0 +1,8 @@
+step,count
+Within-industry candidate pair-months,5765
+"Engle-Granger p <= 5% (both orderings, Bonferroni)",334
+... and Johansen trace test rejects r = 0,216
+... and half-life 2 h - 10 days,216
+... and Hurst < 0.5 and plausible hedge ratio (eligible),137
+"Selected (top 5 / month, ticker cap)",117
+Benjamini-Hochberg discoveries at 5% FDR (all candidates),9
