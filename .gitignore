@@ -26,3 +26,7 @@ venv/
 
 # Allow small, curated result files
 !**/results/*.csv
+
+# Working plans (kept locally, not published)
+**/PLAN.md
+**/*_PLAN.md
