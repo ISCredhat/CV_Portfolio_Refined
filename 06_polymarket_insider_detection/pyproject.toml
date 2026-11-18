@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pmdetect"
+version = "0.1.0"
+description = "Statistical screens for anomalous pre-resolution trading on Polymarket: within-event pre-reveal test and one-shot bet screen"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx",
+    "tenacity",
+    "pydantic",
+    "duckdb",
+    "polars",
+    "pyarrow",
+    "numpy",
+    "typer",
+    "statsmodels",
+    "scikit-learn",
+    "scipy",
+    "matplotlib",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "respx", "ruff"]
+
+[project.scripts]
+pmdetect = "pmdetect.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+pmdetect = ["store/schema.sql"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]

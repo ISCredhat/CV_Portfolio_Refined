@@ -1,0 +1,15 @@
+httpx>=0.28
+tenacity>=9
+pydantic>=2.10
+duckdb>=1.1
+polars>=1.0
+pyarrow>=17
+numpy>=2.0
+typer>=0.12
+pytest>=8
+respx>=0.22
+ruff>=0.8
+matplotlib==3.11.2
+scikit-learn==1.9.1
+scipy==1.18.1
+statsmodels==0.15.0

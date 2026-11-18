@@ -1,0 +1,71 @@
+condition_id,question,tags,info_type,split
+0x52683ca49ff7de707d89b6c992e58f93dd155e0bcb092a4c3a17f08e6bed07b5,Kristi Noem divorce by August 31?,dhs|ice|noem|politics|pop-culture|trump,deadline,tune
+0x0455572bf669d91c9d99a1f728568725901f1795483daf9ccb6203db6ec80a08,Will voter turnout be between 60% and 70% in the first round of the 2026 Zambian presidential elections?,elections|global-elections|international-election-props|politics|zambia,scheduled_reveal,tune
+0x64c812e9f46c023b83dd9025a409c2dde63e8202038c02b200df93fe4daf1056,Will the Bank of Canada increase the target for the overnight rate by 50+ bps at the October interest rate announcement?,Global-Rates|canada|economy|recurring,scheduled_reveal,tune
+0x3ea476dd0635431970af63558e229118edecb5f696568e5e68700fe55ff1c4ac,Will Switzerland advance through the second Eurovision Semi-Final?,eurovision|music|pop-culture,scheduled_reveal,tune
+0xa97e709f7bacf156855f171f7c0c6083eb2871f201b195f3638c3dc5a35dde11,Will Samira Sagr win Big Brother Brasil 26?,pop-culture|reality-tv,scheduled_reveal,tune
+0x0bea4c1fb318208d32fc6da038189bfddb2d025e443b394c8894eebbe7230fd2,Will Microsoft have the best AI model at the end of September 2026?,ai|ai-rankings|astra|gpt-releases|opus|recurring|tech,scheduled_reveal,tune
+0xb031fb5359ed4c483e909576e9c41bf400b5a70ee217c985d9a7a92fd190ae39,Will Z.ai be the third-best Code Arena | WebDev AI lab at the end of October 2026?,ai|ai-rankings|coding|moonshot|recurring|tech|webdev,scheduled_reveal,tune
+0xa73dac007441aea4814398ff85d62ecc29d6aba4295b3bbb526f4da73e673854,Will Saudi Aramco be the second-largest company in the world by market cap on September 30?,big-tech|business|economy|finance|recurring|tech,scheduled_reveal,tune
+0xae2373aa8571c83506ba52e70a163c74cebc5b4f5c00de8a82237ab4af84c601,Will UK GDP growth in Q1 2026 be between 0.6% and 0.9%?,economy|gdp|macro-indicators|uk|united-kingdom,scheduled_reveal,tune
+0x35aed80885e3ab530bebb869e31c713b9238204ab7f134b857d024e8e77c0681,Will DeepSeek have the top AI model on April 30?,ai|elon-musk|grok|openai|recurring|tech,scheduled_reveal,tune
+0x87ad25fcbc0a0ee5608293df8a0b8ad528f5e381b46e39156f911c1e03a788b7,Will Taylor win Season 7 of Love Island USA?,pop-culture|reality-tv,scheduled_reveal,tune
+0xf915f9b15b31c463e1b11d8b15cca3748f884a0456c46ea0ca068ad4f7aeb7f8,Will 55 or more Senators vote to confirm RFK as Secretary of HHS? ,congress|politics|rfk-jrpt|robert-fpt-kennedy-jrpt|senate-elections|trump-cabinet|trump-presidency,scheduled_reveal,tune
+0x1c518aec7fe638ae0177b19c3231305de42cc826308352281b433993114882a3,Will Crypto Vikings win the Synthetix trading competition?,crypto,scheduled_reveal,tune
+0xc0f676c42dc08020edcb5f76a93dd598fac5438f9f4966ab412b1fa9be3f50ab,Was the captain of crashed Delta flight a woman?,pop-culture,unscheduled_event,tune
+0x5501ab202eeefb162c50ab64afb8d7e8d460a77c62c8d5fcb47f8bdee3eea75c,Israel x Hamas ceasefire by March 31?,geopolitics|hamas|israel|middle-east|politics,deadline,tune
+0xa919b6a7cc8c958d82141ec2ba77b8fe813083a7ee2083178305c409ae28ce0d,Will the Bank of Mexico announce no change at the May meeting?,Global-Rates|banxico|economic-policy|economy|mexico,scheduled_reveal,tune
+0x51ad37344374ede871f85cf67dd5723713d817f7af69f1aa5f4cdd177e79a235,US strike on Iran on June  26?,geopolitics|iran|israel|middle-east|military-action|trump|us-iran|world,unscheduled_event,tune
+0x1113be31b4c830833971086317abf65c50a708cf2836e574a946c6f6b3aad347,"Will Trump say ""Peanut"" this week?",mention-markets|politics|trump,unscheduled_event,tune
+0xa71201f26b663539c9b2b96cfc2f6ef6854544cba7bf41910e64d5651ec0a5d7,"Will the Ornn A100 Index be between $1.25 and $1.50 on September 30, 2026?",a100|ai|business|compute|finance|nvidia|ornn|recurring|tech,scheduled_reveal,tune
+0x6669e7cda4b55ac014d5a9b3415ef724a818b4bcd6b2863f949df356ade34c22,Ukraine agrees to Trump mineral deal by Friday?,breaking-news|geopolitics|politics|ukraine|ukraine-peace-deal,deadline,tune
+0x9150f2bd3001c077f5af2773509624d27f6eab204fd606da9f1f219f783555f4,Over $2M committed to the TownSquare public sale?,crypto|public-sales,scheduled_reveal,tune
+0x9a2f2754f23f26fe7120426ccddd544802c4db494c8d63675473479617ec8b68,Will Ron Paul be a member of the Trump administration? ,post-election|trump|trump-presidency|uptspt-politics,unscheduled_event,tune
+0x7fcd219481e3ffc6dcdaa7b382bdf31685f90b60803f2264704a0b2b3f1746cd,"Will Russia enter Rai-Oleksandrivka by February 28, 2026?",geopolitics|politics|ukraine-map,deadline,tune
+0x6fd4cff7d7e09e613ae8db200557ec8487dfb2200412e230619400b23d52b5bc,Will Trump nominate Mandy Gunasekara for Administrator of the US Environmental Protection Agency?,environemntal-protection|politics|trump-cabinet|trump-presidency,unscheduled_event,tune
+0x540b8eef280e57acbee903aee61b767fd13b532fda485aa293768b1fdd8e1c3e,Will Austin Beutner win the 2026 Los Angeles mayoral election?,elections|la|la-mayor|los-angeles|los-angeles-mayoral-election|mayor|mayoral-elections|mayoral-races|politics|us-presidential-election,scheduled_reveal,tune
+0xc98ddbc7a1e0250b2b67a0c932f709c1e4e7bddaef2347bccc6df4d46445464a,Will Trump reduce or pause tariffs on Pakistan before June?,economy|politics|tariffs|trade-war|trump|trump-presidency,deadline,tune
+0xf872282c6a3b65bb5aae1ae8083970bd719e05a175a7f0433e85c38ea555685f,Will POTUS tweet 50 or more times Jan 22-29?,politics|trump-presidency|trump-week-1|tweets-markets,deadline,tune
+0x692c618b5abbdca02a622dde25c61bb3c8a339fc27f6bd2e1830a68512893808,Will Peter Dutton lose his seat?,australia|elections|global-elections|politics|world,scheduled_reveal,tune
+0x53316ee53bbb1f8b488371cbcf29b851838909ff1bd266fac86bd3d62c99093b,Will turnout in the first round of the 2026 Peruvian presidential election be between 70% and 75%?,elections|geopolitics|global-elections|peru|peru-elections|politics,scheduled_reveal,tune
+0x345142310bb14098d8a59c3d3f65679077b09c35b206cfb831c5983db0fcdd53,"GPT-5.6 released by July 9, 2026?",ai|ai-releases|gpt|gpt-5pt6|openai|tech,deadline,tune
+0x132353a6f0e84238624895f623ec5fb370985c09a0916714b0f8550760a2f257,Will Moldova be in the top 5 at Eurovision 2026?,awards|eurovision|music|pop-culture,scheduled_reveal,tune
+0x885a27692dcf2a4aca000947d0c65059ee8ec301bb08b0f07201a3db33464c8d,Will SpaceX have between 140-159 launches in 2025?,2025-predictions|science|spacex,deadline,tune
+0x49b2d631dd35aa8dca1b781709c6855e68cd276cc8c2885affc1d2cc2f8dffaa,"Will ""Superman"" Opening Weekend Box Office be between $108-116m?",movies|pop-culture,scheduled_reveal,tune
+0x342ac13025bc0054bdbc6ee07aabe6f60e523c9b053ac352bf2fd151d7fbd378,Martial law in South Korea before Monday?,breaking-news|geopolitics|politics|south-korea|yoon,deadline,tune
+0xc605cc488f4ebc8436af7fc418c3badebd76a8f43ed1fedb480db66f767ae152,Federal employee charged as a result of DOGE investigation?,courts|doge|politics|trump|trump-presidency,unscheduled_event,tune
+0x84f50dfba6cc430eb8c07098c61b96e613158054b86dec72ba0c0780237e9566,"Will Biden say ""hope"" 3 or more times during farewell address?",biden|mention-markets|politics|speech,scheduled_reveal,tune
+0x4ccd12e80bea92714961ece1e346c0725b152829009280d5e3391d5c20cb5b8f,Will Poland finish in the 2025 Eurovision top 10?,eurovision|music|pop-culture,scheduled_reveal,tune
+0x448dd50fd404bd2fa1b01c7c014efc253779b68c7eaf3778db4c43c45b197361,"Will ""The Wild Robot"" win Best Animated Feature at the 2025 Oscars?",awards|movies|oscars|pop-culture,scheduled_reveal,tune
+0x54082a74ad9f5830382af7e3911193313dc57b2251c3f65a0c8adcce8304af03,Will Dimitar Glavchev be the next prime minister of Bulgaria after the 2026 parliamentary election?,bulgaria|elections|global-elections|main-election|politics|rewards-20-4pt5-50,scheduled_reveal,tune
+0x404076fc9fc580c6766d9f434a847fbb750197d0da8340e36b845cf05494610a,Will Lithuania be in the top 10 at Eurovision 2026?,awards|eurovision|music|pop-culture,scheduled_reveal,tune
+0xe5c89d53b9cdb30ef8bce0ec3b4a4f4777fc7caebeefda7fc5c47d6d93c75c05,Over $750k committed to the TownSquare public sale?,crypto|public-sales,scheduled_reveal,holdout
+0xbc764dfa14fcfde5b70730f3b101a624fe36f311c0796f57b05a0b6f812a6909,Will Croatia be the Jury Winner in the Eurovision 2026 Grand Final?,eurovision|music|pop-culture,scheduled_reveal,holdout
+0xf763084cf8aa36c2da86034950abaf40bfe0b6a39ea84ed27b1caa7e04274376,Bolsonaro arrested before May?,brazil|politics|world,deadline,holdout
+0xd6054093f46f9c50e5d460460f953b7114ccf7d7957650aafbb7cd1f7008e786,Will Kazakhstan win Intervision 2025?,intervision|music|pop-culture,scheduled_reveal,holdout
+0x50b4ae33196e2931245c44da64a643b96d60c35b3474b771efa2dd5cb05be890,Will Benny Safdie win Best Director at the 98th Academy Awards?,awards|movies|oscars|pop-culture,scheduled_reveal,holdout
+0x6f98bf552b696e6698beb205cf3849a80696c9c03ef500435d01e9c57e4315e3,Will Tarcisio de Freitas win the first round of the 2026 Brazilian presidential election?,brazil|elections|global-elections|international-election-props|politics|world,scheduled_reveal,holdout
+0x29541d9b679b31fff5d73182ca51c597f33b43edb779769c5ffefdf95869da37,Will the Nationalist Congress Party (NCP) win the most seats in the 2026 Kerala Legislative Assembly election?,elections|global-elections|india|indian-elections|main-election|politics|world-elections,scheduled_reveal,holdout
+0x48098373ac3a3ea57c471822aed70f259fe39addbd75fda5feffda1473123dc9,Will Timothée Chalamet win the Golden Globe for Best Actor - Drama?,awards|golden-globes|movies|pop-culture,scheduled_reveal,holdout
+0xaaef74ebd7e24bf0403a510629350bb44b62ed7cbfb49a1643388dc133443912,Will Ken Paxton come in 3rd in the 2026 Texas Republican Primary?,elections|march-3-primaries|politics|primaries|texas-senate|us-presidential-election,scheduled_reveal,holdout
+0x8ec31fd00bcf5f321ce2b569a12f9af554402ed6f70be46de83f5674e97fbf98,Will Russia enter Matiasheve by August 31?,geopolitics|ukraine-map,deadline,holdout
+0x50001b17834df31175969262b5f909d86db8b097c1ec4db82579fc96e8ffc1bd,Will PewDiePie’s next video get less than 1.0 million views on day 1?,internet|pewdiepie|pop-culture|youtube,unscheduled_event,holdout
+0x1e1c72e3d2f028b3e54b7069ec62868601099f426932dfd54d655198aee2b567,Will Trump try to fire Powell by September 30?,economic-policy|economy|fed-rates|politics|trump,deadline,holdout
+0x6b8e4e63b7cf4e2a3b9882952813d3ca2e8a0dc13037440f4c4a3fbe11af7396,"Will Russia capture Zarichne by March 31, 2026?",geopolitics|politics|ukraine-map,deadline,holdout
+0x60c447987af838c9a074ad7d44751135be94a20580982b72d76e9b542572bfe6,Will Cynthia Erivo win Best Actress at the 98th Academy Awards?,awards|movies|oscars|pop-culture,scheduled_reveal,holdout
+0x158eef4b8baecff4d6e47167996aeddc76fd7d3728eeb3380d4681277928efd5,Will Trump's approval rating be between 43.0% and 43.9% on May 2?,approval|politics|recurring|trump|trump-presidency,scheduled_reveal,holdout
+0xd4ebed0a63f14ac0aaacd08e0c5fb3b9b60295b2d73b7a983523c3b56242d8d6,Will Elon tweet 150–164 times August 1–August 8?,elon-musk|politics|pop-culture|tweets-markets,deadline,holdout
+0x128f8900f9fcf26d6686566105a0bbb581813a0d3f16f1fa0a0324e56ed9c6fc,Will Bill Ackman announce NYC mayoral run before August?,bill-ackman|new-york-city|nyc-mayor|politics,deadline,holdout
+0xc7ed2b316d7d931ee622e5a882b0b3943d62e8f0cb81c37988938f86e5f99883,Will anyone other than the listed individuals win Staten Island?,elections|new-york|nov-4-elections|nyc-mayor|politics|us-presidential-election,scheduled_reveal,holdout
+0x9b4646a4eb0bb6c2348fae40bb38286b1ea6a6f5a1315438374e590acdfa61d6,10-year Treasury yield >4.4% Friday?,economy|trade-war|treasuries,scheduled_reveal,holdout
+0x4911ff8b9db4a6893eda2696e4739e73c0c821c9e45b8f2f40be1c0beaae371b,Will Elon Musk post 20-39 tweets in December 2025?,politics|pop-culture|tweets-markets,deadline,holdout
+0x70ba5e3be93b05076d870f17eec57b45ab7c89aae44a6c3f37171bee5ae320fa,Will the US add between 75k and 100k jobs in January?,economy|jobs-report|macro-indicators|nfp|nonfarm-payroll|rewards-20-4pt5-50,scheduled_reveal,holdout
+0x9d1f2f0054e31e702ab533a0f6ab859c7640523eb0ded5454c393938331fe054,Will Trump act to ban mail-in voting or voting machines by June 30?,elections|midterms|politics|trump,deadline,holdout
+0xe17ba94a08eea15ab8318372de64054d0395f6b78428210fbe1d512a28c3264e,Will Trump post 160-179 times on Truth Feb 21-28?,politics|pop-culture|recurring|trump|trump-presidency|tweets-markets,deadline,holdout
+0xdf0ac4b71e0b7bd3b5a5a3e605e05bc1ca127a752d16ff48000849bec569a907,Will Joshua Griffin win the 2026 Colorado Governor Republican primary election?,colorado-primary|elections|governor-primary|june-30-primaries|politics|primaries|primary-elections|republican-primary|us-presidential-election,scheduled_reveal,holdout
+0x5462f42021274e9d00bd197a69c33aad459a42dd40669bf5e9eefda7fac8a69f,Will Elon Musk post 1040-1079 tweets in July 2026?,politics|pop-culture|rewards-automation-50-4pt5-50|tweets-markets,deadline,holdout
+0x7a81e3774b8d4c978b16edaa1590bdad5271822f48281d425cac37a4a1de7ade,"Will Mohammad Bagher Ghalibaf attend a US x Iran diplomatic meeting by August 31, 2026?",diplomacy-ceasefire|geopolitics|iran|israel-x-iran|peace-deal|politics|trump|us-iran,deadline,holdout
+0xc9724206fca7531faadd496d10721ef69d4c6bcd5007dbb5ca44eb795d4b9707,Will Trump impose tariffs on Canada in his first week? ,ai|deepseek|economy|politics|trump|trump-presidency|trump-week-1,deadline,holdout
+0xfca1a2c7262a3718b3079428b50dd4114add3f48d1e44f9692b34e1f4ebe32a6,Will Trump nominate Tiffany Justice for Education Secretary?,politics|trump|trump-cabinet|trump-presidency,unscheduled_event,holdout
+0x0ca86b30dc11f32cb2e8869419d528e5a29cfc663c6c29bc25cddfd2d1891c0b,Will San Marino advance through the first Eurovision Semi-Final?,eurovision|music|pop-culture,scheduled_reveal,holdout
+0x0b9f873f001fa5ccf06fb55a21663401a86ba8af20c2452baea618a32c08c88f,Japan prime minister Ishiba out in 2025?,japan|politics|world,deadline,holdout
