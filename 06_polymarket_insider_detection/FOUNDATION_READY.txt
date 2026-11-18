@@ -1,0 +1,1 @@
+Foundation ready: pyproject, .venv (deps installed, pmdetect editable), collect/http.py (get_json, paginate_cursor), store/schema.sql, store/db.py (connect, upsert, DEFAULT_DB). Run with .\.venv\Scripts\python. Live Gamma verified.
