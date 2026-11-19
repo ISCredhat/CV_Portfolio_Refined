@@ -175,8 +175,8 @@ def freeze(path: str | Path = CC.PREREG_YAML, commit: str | None = None, now: da
         text, n = re.subn(rf"^(  {key}:)\s*\S+", rf"\g<1> {val}", text, count=1, flags=re.M)
         if n != 1:
             raise PreregError(f"cannot set meta.{key}")
-    path.write_text(text)
+    path.write_text(text, newline="\n")                 # LF on every OS: the hash is of these bytes
     digest = sha256_file(path)
-    _hash_path(path).write_text(f"{digest}  {path.name}\n")
+    _hash_path(path).write_text(f"{digest}  {path.name}\n", newline="\n")
     load(path)
     return {"sha256": digest, "git_commit": commit, "frozen_at": stamp}

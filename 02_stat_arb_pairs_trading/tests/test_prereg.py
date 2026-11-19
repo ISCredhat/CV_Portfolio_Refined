@@ -79,6 +79,7 @@ def test_freeze_records_hash_and_detects_tampering(tmp_path):
     cfg = P.load(p)
     assert cfg["meta"]["frozen"] is True and cfg["meta"]["git_commit"] == "abc123" and cfg["meta"]["frozen_at"]
     assert (tmp_path / "preregistration.sha256").read_text().split()[0] == out["sha256"] == P.sha256_file(p)
+    assert b"\r" not in p.read_bytes() and b"\r" not in (tmp_path / "preregistration.sha256").read_bytes()   # LF on Windows too
     assert _raises(lambda: P.freeze(p, commit="x", allow_open_checks=True))      # no second freeze
     p.write_text(p.read_text().replace("seed: 20261118", "seed: 20261119"))
     assert _raises(lambda: P.load(p))                                            # edited after freezing
