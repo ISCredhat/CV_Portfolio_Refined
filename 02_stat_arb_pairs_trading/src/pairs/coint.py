@@ -173,3 +173,129 @@ def benjamini_hochberg(p: np.ndarray, q: float) -> np.ndarray:
         k = np.max(np.nonzero(below)[0])
         reject[order[: k + 1]] = True
     return reject
+
+
+# ---------------------------------------------------------------------- batched Engle-Granger
+def mackinnon_p_vec(stat: np.ndarray, n_vars: int = 1) -> np.ndarray:
+    """Vectorised `mackinnon_p` (same response surface, same clipping at the tails)."""
+    s = np.asarray(stat, dtype=float)
+    i = n_vars - 1
+    small = norm.cdf(np.polyval(_TAU_C_SMALLP[i][::-1], s))
+    large = norm.cdf(np.polyval(_TAU_C_LARGEP[i][::-1], s))
+    p = np.where(s <= _TAU_STAR_C[i], small, large)
+    p = np.where(s > _TAU_MAX_C[i], 1.0, np.where(s < _TAU_MIN_C[i], 0.0, p))
+    return np.where(np.isfinite(s), p, np.nan)
+
+
+def _adf_nc_batch(U: np.ndarray, maxlag: int | None) -> tuple[np.ndarray, np.ndarray]:
+    """ADF without constant on every column of U (n, P): BIC lag on a common sample, then the final
+    regression on the sample implied by the chosen lag (exactly what `adf(constant=False)` does).
+    Normal equations are solved for all pairs at once. Returns (t-stat, lag) per column."""
+    n, P = U.shape
+    if maxlag is None:
+        maxlag = int(np.ceil(12.0 * (n / 100.0) ** 0.25))
+    maxlag = max(0, min(maxlag, n // 2 - 1))
+    dx = np.diff(U, axis=0)
+
+    def design(Ucols, dcols, p, start):
+        rows = np.arange(start, n - 1)
+        X = np.stack([Ucols[rows]] + [dcols[rows - i] for i in range(1, p + 1)], axis=2).transpose(1, 0, 2)
+        return dcols[rows].T, X                              # (P, m), (P, m, 1 + p)
+
+    best_lag = np.zeros(P, dtype=int)
+    if maxlag > 0:
+        y, X = design(U, dx, maxlag, maxlag)
+        m = y.shape[1]
+        G = np.einsum("pmi,pmj->pij", X, X)
+        Zy = np.einsum("pmi,pm->pi", X, y)
+        bic = np.empty((maxlag + 1, P))
+        for lag in range(maxlag + 1):
+            k = lag + 1
+            b = np.linalg.solve(G[:, :k, :k], Zy[:, :k, None])[:, :, 0]
+            e = y - np.einsum("pmi,pi->pm", X[:, :, :k], b)
+            rss = np.maximum((e * e).sum(1), 1e-300)
+            bic[lag] = m * (np.log(2 * np.pi) + np.log(rss / m) + 1) + k * np.log(m)
+        best_lag = np.argmin(bic, axis=0)                    # first minimum, as the strict < in `adf`
+    stat = np.empty(P)
+    for p in np.unique(best_lag):
+        idx = np.nonzero(best_lag == p)[0]
+        y, X = design(U[:, idx], dx[:, idx], int(p), int(p))
+        m, k = y.shape[1], int(p) + 1
+        G = np.einsum("pmi,pmj->pij", X, X)
+        Ginv = np.linalg.inv(G)
+        b = np.einsum("pij,pj->pi", Ginv, np.einsum("pmi,pm->pi", X, y))
+        e = y - np.einsum("pmi,pi->pm", X, b)
+        s2 = (e * e).sum(1) / (m - k)
+        stat[idx] = b[:, 0] / np.sqrt(s2 * Ginv[:, 0, 0])
+    return stat, best_lag
+
+
+def engle_granger_batch(Y: np.ndarray, X: np.ndarray, maxlag: int | None = None) -> dict:
+    """Engle-Granger test for many pairs at once: column j of Y is regressed on column j of X.
+
+    Same statistic, lag choice and MacKinnon p-value as `engle_granger` applied column by column (the test
+    suite checks 1e-8), but the OLS and all the ADF regressions are batched, which is what makes the
+    ~3-7k within-industry pairs per month affordable (review M8). Y and X are (n, P) and NaN-free; pairs
+    with different numbers of observations must be passed in separate calls. A pair whose residual is
+    numerically zero (identical series) gets NaN stat and p-value so that the caller can count it."""
+    Y = np.asarray(Y, dtype=float)
+    X = np.asarray(X, dtype=float)
+    if Y.shape != X.shape or Y.ndim != 2:
+        raise ValueError("Y and X must both be (n, P)")
+    if not (np.isfinite(Y).all() and np.isfinite(X).all()):
+        raise ValueError("engle_granger_batch needs NaN-free input")
+    n, P = Y.shape
+    mx, my = X.mean(0), Y.mean(0)
+    xc, yc = X - mx, Y - my
+    sxx = (xc * xc).sum(0)
+    beta = (xc * yc).sum(0) / sxx
+    alpha = my - beta * mx
+    U = yc - beta * xc
+    scale = np.maximum((yc * yc).sum(0), 1e-300)
+    bad = ~np.isfinite(beta) | ((U * U).sum(0) <= 1e-20 * scale)
+    stat = np.full(P, np.nan)
+    lags = np.zeros(P, dtype=int)
+    ok = np.nonzero(~bad)[0]
+    if len(ok):
+        stat[ok], lags[ok] = _adf_nc_batch(U[:, ok], maxlag)
+    return {"stat": stat, "pvalue": mackinnon_p_vec(stat, 2), "alpha": alpha, "beta": beta, "resid": U,
+            "lags": lags, "degenerate": bad}
+
+
+def half_life_batch(S: np.ndarray) -> np.ndarray:
+    """`half_life` for every column of S (n, P): OLS of ds_t on [1, s_{t-1}], -ln 2 / ln(1 + b)."""
+    s0, ds = S[:-1], np.diff(S, axis=0)
+    xc = s0 - s0.mean(0)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        b = (xc * (ds - ds.mean(0))).sum(0) / (xc * xc).sum(0)
+        hl = -np.log(2) / np.log1p(b)
+    return np.where(b >= 0, np.inf, np.where(b <= -1, 0.0, hl))
+
+
+# ---------------------------------------------------------------------- simulated Johansen critical values
+def johansen_cv_sim(T: int, reps: int = 20000, seed: int = 20261118) -> tuple[float, float, float]:
+    """Finite-sample (90%, 95%, 99%) critical values of the trace test (r = 0, restricted constant, one lagged
+    difference) for T observations of two independent driftless random walks with Gaussian steps.
+    The asymptotic 20.26 under-rejects less at T = 126 than it should (review m7), so selection uses these."""
+    rng = np.random.default_rng(seed)
+    tr = np.empty(reps)
+    for i in range(reps):
+        tr[i] = johansen_trace(np.cumsum(rng.standard_normal((T, 2)), axis=0))["trace"]
+    return tuple(float(q) for q in np.quantile(tr, [0.90, 0.95, 0.99]))
+
+
+# Simulated with johansen_cv_sim(T, reps=40000, seed=JOHANSEN_SIM_SEED); regenerate with `python -m pairs.coint`.
+JOHANSEN_SIM_SEED = 20261118
+JOHANSEN_CV_SIM = {126: (18.414167527790283, 20.724192050999967, 25.67979997897743),
+                   252: (18.207305744427106, 20.511770755852098, 25.567718807326045)}
+
+
+def johansen_cv(T: int) -> tuple[float, float, float]:
+    """Cached simulated critical values for the cached T nearest to `T` (126 = 6 months, 252 = 12 months)."""
+    key = min(JOHANSEN_CV_SIM, key=lambda k: abs(k - T))
+    return JOHANSEN_CV_SIM[key]
+
+
+if __name__ == "__main__":                                 # pragma: no cover
+    for T_ in (126, 252):
+        print(T_, johansen_cv_sim(T_, 40000, JOHANSEN_SIM_SEED))

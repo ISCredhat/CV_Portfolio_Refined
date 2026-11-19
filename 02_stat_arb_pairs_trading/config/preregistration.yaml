@@ -1,0 +1,256 @@
+# Pre-registration of the CRSP daily pairs-trading study (plan 02_stat_arb_wrds_PLAN.md, v2, section 12 overrides).
+# Frozen items are hashed: scripts/freeze_prereg.py records the sha256 in config/preregistration.sha256 and the
+# git commit below. prereg.load() verifies the hash and asserts that this file agrees with src/pairs/config_crsp.py.
+# Post-freeze fixes never edit this file: they go to config/deviations_log.yaml (reported with both results).
+meta:
+  version: 2
+  frozen: false                 # set to true by scripts/freeze_prereg.py after Isaac signs off
+  frozen_at: null
+  git_commit: null
+  wording: >-
+    Parameters frozen and published before any CRSP data was downloaded. 2020-11 onward was seen in the original
+    100-stock study (the frozen configuration was chosen on 2021-22 there), so 2023-25 is "previously observed,
+    new universe". The backward window is 1990-01 to 2020-10.
+  deviations_log: config/deviations_log.yaml
+
+pre_freeze_checks:              # freeze_prereg.py refuses to freeze while any item is false
+  commission_schedule_verified: true      # 2026-11-19: Do & Faff (2012) Table 2 (institutional) transcribed from the PDF Isaac supplied
+  ggr_targets_checked_against_pdf: true   # 2026-11-19: every value in plans/02_ggr_dofaff_targets.md matched the PDF tables
+  signed_off_by_isaac: true               # 2026-11-19, in the project thread
+
+configuration:                  # the frozen trading configuration (chosen on 2021-22 Databento data); never re-selected
+  bar: 1D
+  method: rolling
+  entry: 2.0
+  exit: 0.5
+  stop: entry + 2.0             # |z| >= entry + STOP_Z_ADD
+  stop_z_add: 2.0
+  time_stop: 3 x hl_days trading days
+  time_stop_half_lives: 3.0
+  rolling_window_bars: 20
+  kalman_memory_days: 10
+  month_end_exit: true
+  leverage: 2.0
+  n_pairs: 5
+  n_pairs_secondary: 20         # pre-registered secondary series, not only a robustness check
+  max_pairs_per_stock: 2
+  variants_total: 18            # 3 hedges x 3 entries x 2 exits; "deflated" only for best-of-N claims
+  variants:
+    method: [static, rolling, kalman]
+    entry: [1.5, 2.0, 2.5]
+    exit: [0.0, 0.5]
+
+universe:
+  top_n: 500
+  top_n_sensitivity: [100, 1000, 3000]
+  min_price_last_formation_day: 5.0
+  min_traded_share: 0.95
+  decided_at: formation end only (stocknames_v2 spells valid on that date)
+  identity: PERMNO
+  share_filter:
+    securitytype: [EQTY]
+    securitysubtype: [COM]
+    sharetype: [NS]
+    usincflg: [Y]
+    issuertype: [ACOR, CORP]
+    primaryexch: [N, A, Q]
+    conditionaltype: [RW]
+    tradingstatusflg: [A]
+  exclude_same_permco: true     # reported separately, never traded
+  merger_codes: [200, 399]      # tagged for attribution only, never a filter
+
+industry:
+  primary: ff48                 # CRSP historical SIC as of formation end
+  sensitivity: [gics_ind, sic2, none]
+  exclude_ff48: [48]            # "Other" and unmapped SIC never form within-industry pairs
+
+selection:
+  formation_months: 6
+  formation_months_sensitivity: [12]
+  min_obs_share: 0.8
+  alpha: 0.05
+  fdr: 0.05
+  half_life_days: [1.0, 10.0]
+  max_hurst: 0.5
+  hedge_ratio_range: [0.2, 5.0]
+  eg_maxlag: 12
+  johansen: simulated critical values at T = 126 (6 months) and 252 (12 months), restricted constant
+  rank: Engle-Granger p-value (2 x min of both directions), ties by half-life
+  random_placebo_portfolios: 100
+
+execution:
+  primary: t1_close             # H1 is tested on this: defined every day since 1926, equals GGR's one-day wait
+  co_reported: t1_open          # from 1993-01, open fills pay 1.5 x the closing half-spread
+  no_delay: t_close
+  open_first_month: "1993-01"
+  open_spread_mult: 1.5
+  note: the original edge existed only with next-morning fills (0.39 vs -0.07 at t+1 close), so H1 is a hard test.
+
+delisting:
+  impute: {N: -0.30, A: -0.30, Q: -0.55}     # Shumway (1997); Shumway & Warther (1999), codes 500-599 with missing dlret
+  bounds: [0.0, -1.0]
+  exit: both legs close on a leg's last CRSP row (reason delisting)
+  min_event_match: 0.99         # delisting event cross-check against legacy dsedelist
+
+costs:
+  spread_primary: quoted        # half of the median closing quoted spread over the previous month, floored at half a tick
+  spread_quoted_factor_sensitivity: 0.5
+  spread_fallback_mult: 1.25    # of the same exchange x price-decile median; a missing estimate otherwise raises
+  quotes_reliable_from: "1993-01"
+  ticks:
+    N: [["1900-01-01", 0.125], ["1997-06-24", 0.0625], ["2001-01-29", 0.01]]
+    A: [["1900-01-01", 0.125], ["1997-05-07", 0.0625], ["2001-01-29", 0.01]]
+    Q: [["1900-01-01", 0.125], ["1997-06-02", 0.0625], ["2001-04-09", 0.01]]
+  commission_bps:               # one-way, bps of value: Do & Faff (2012) Table 2 institutional; after 2009 held at 9
+    - [1963, 70]
+    - [1964, 71]
+    - [1965, 71]
+    - [1966, 66]
+    - [1967, 67]
+    - [1968, 68]
+    - [1969, 64]
+    - [1970, 63]
+    - [1971, 66]
+    - [1972, 61]
+    - [1973, 56]
+    - [1974, 72]
+    - [1975, 68]
+    - [1976, 57]
+    - [1977, 54]
+    - [1978, 55]
+    - [1979, 48]
+    - [1980, 45]
+    - [1981, 41]
+    - [1982, 33]
+    - [1983, 28]
+    - [1984, 26]
+    - [1985, 25]
+    - [1986, 22]
+    - [1987, 20]
+    - [1988, 19]
+    - [1989, 20]
+    - [1990, 20]
+    - [1991, 21]
+    - [1992, 19]
+    - [1993, 17]
+    - [1994, 17]
+    - [1995, 16]
+    - [1996, 14]
+    - [1997, 10]
+    - [1998, 10]
+    - [1999, 10]
+    - [2000, 10]
+    - [2001, 10]
+    - [2002, 10]
+    - [2003, 10]
+    - [2004, 10]
+    - [2005, 10]
+    - [2006, 9]
+    - [2007, 7]
+    - [2008, 8]
+    - [2009, 9]
+  commission_flat_sensitivity: 0.0035
+  impact_bps: 1.0
+  borrow_fee_annual: 0.01
+  borrow_fee_hard: 0.05         # top-1000/3000 only
+  multipliers: [0.0, 0.5, 1.0, 1.5, 2.0, 3.0]
+  spread_cap: none
+
+short_sale_ban:
+  window: ["2008-09-19", "2008-10-08"]
+  ff48: [44, 45, 46, 47]
+  note: new short legs blocked; the uptick rule (until 2007-07-06) is not modelled
+
+periods:
+  backward_oos: ["1990-01", "2020-10"]     # H1 window
+  seen: ["2020-11", "2022-12"]
+  forward: ["2023-01", "2025-12"]          # previously observed, new universe
+  main: ["1990-01", "2025-12"]
+  ggr: ["1963-07", "2009-06"]              # Do & Faff (2010) trading months; CRSP daily then began 1962-07-02
+
+hypotheses:
+  holm_across: [H1, H2, H3, H4]
+  alpha: 0.05
+  H1:
+    claim: the backward-OOS net Sharpe ratio is above 0
+    sample: backward_oos
+    series: daily net excess return of the frozen configuration, 5 pairs, top 500, FF48, execution t1_close
+    statistic: annualised Sharpe ratio
+    test: one-sided Politis-Romano stationary-bootstrap lower bound (alpha) above 0; p = bootstrap share of Sharpe <= 0
+    side: greater
+    alpha: 0.05
+    holm: true
+    block: Politis-White (mean block), reps 2000
+  H1b:
+    claim: FF5 + MOM + STREV alpha of the H1 series is positive
+    statistic: alpha, Newey-West t
+    side: greater
+    threshold: t > 1.65
+    nw_lags_daily: 5
+    holm: false                 # reported beside H1, not part of the Holm family
+  H2:
+    claim: the share of pair-months with p_eg <= 5% exceeds the resampled null
+    sample: main
+    statistic: monthly excess pass rate (observed minus null, percentage points)
+    test: one-sided Newey-West t-test of the mean excess
+    nw_lags: 6
+    side: greater
+    alpha: 0.05
+    min_excess_pp: 1.0          # "supported" needs a mean excess of at least 1 pp
+    null: time-shifted partner - leg y keeps its month-m formation window, leg x uses its own window from m-36 (then m-48, m-60, m+36, m+48, m+60 if too few observations); real paths, no resampling
+    null_sensitivity: stationary bootstrap of each leg's own returns (mean block 5, 21, 63; over-rejects on random walks at n = 126, so conservative) and iid resampling
+    null_reference: iid Gaussian random walks at the same n
+    null_reps_per_pair: 1
+    holm: true
+  H3:
+    claim: cointegration selection beats distance selection on net Sharpe
+    sample: backward_oos
+    statistic: difference of annualised net Sharpe ratios (coint minus distance, same rules and costs)
+    test: Ledoit & Wolf (2008) HAC test
+    side: greater
+    alpha: 0.05
+    holm: true
+  H4:
+    claim: gross monthly returns have a negative time trend
+    sample: main
+    series: gross monthly return of the frozen configuration (net is reported, not tested)
+    statistic: OLS slope on time
+    test: one-sided Newey-West t-test, plus a break at the pre-specified date
+    nw_lags: 12
+    side: less
+    alpha: 0.05
+    break: "2001-04"
+    holm: true
+  decision: each hypothesis is reported as supported or not supported, whatever the answer.
+
+power:                          # minimum detectable effects, 80% power, one-sided 5%
+  H1_full_backward_oos_sharpe: 0.45
+  H1_forward_2023_25_sharpe: 1.4          # the forward window can only flag failure
+  H3_sharpe_difference_corr_0_3: 0.53
+  H4_total_change_in_monthly_sd_units: 0.41   # low power by design
+
+replication:
+  ggr:
+    primary_target: Do & Faff (2010) Table 1, top 20, wait one day, employed capital, three sub-periods and full sample
+    pass_rule: replicated mean within 2 Newey-West standard errors of the published mean (published SE = mean / t)
+    secondary: rest of D&F Table 1, D&F Table 2 shares, GGR (1999) Table I on 1963-1997, GGR (2006) 0.38% a month for 1989-2002
+    rules: 12-month formation, 6-month trading, 2 formation SDs, close at crossing or delisting or last day, re-opening allowed, six overlapping portfolios, NW 6
+    window: trading months 1963-07 to 2009-06; the first formation is 1962-07 to 1963-06, the start of CRSP daily data as D&F and GGR had it
+    sharpe_basis: monthly, not annualised, as in D&F Tables 1 and 4 (their mean 0.0062 and Sharpe 0.59 imply a 1.05% monthly SD)
+    timing_rules: wait one day (target) and no wait (secondary), both run
+    selections: [top5, top20, 101-120, all]
+
+statistics:
+  trading_days: 252
+  boot_reps: 2000
+  boot_mean_block: 21
+  boot_block_sensitivity: [5, 63]
+  nw_lags_monthly: 6
+  nw_lags_trend: 12
+  seed: 20261118
+  n_placebo: 100
+  walk_forward: trailing 36-month net Sharpe over the 18 variants; ties go to the frozen configuration
+
+robustness: [variants_18, walk_forward, ggr_replication, subperiods, factor_regressions, universe_size,
+  industry_definition, portfolio_size, formation_length, random_pair_placebo, screen_at_scale,
+  execution_and_costs, capacity, survivorship, midquote_signals, negative_controls]

@@ -30,3 +30,7 @@ venv/
 # Working plans (kept locally, not published)
 **/PLAN.md
 **/*_PLAN.md
+# Project 02: the FF48 map is checked by sha256 in the code, so it is published
+!02_stat_arb_pairs_trading/data/reference/
+02_stat_arb_pairs_trading/data/reference/*
+!02_stat_arb_pairs_trading/data/reference/Siccodes48.txt

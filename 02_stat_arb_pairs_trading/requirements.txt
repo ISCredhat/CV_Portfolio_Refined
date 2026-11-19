@@ -11,3 +11,7 @@ requests>=2.31
 # optional: tests compare the from-scratch ADF / Engle-Granger with statsmodels when installed
 statsmodels>=0.14
 pytest>=8
+# CRSP study (Part A). Use Python 3.12 or 3.13: wrds pins pandas<2.3, which has no Python 3.14 wheels.
+pyarrow>=15,<26     # 26.0.1's DLLs are blocked by Windows Smart App Control on Isaac's PC; 25.0.1 loads
+pyyaml>=6
+wrds>=3.2          # download only, on a machine with WRDS access
