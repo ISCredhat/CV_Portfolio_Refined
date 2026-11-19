@@ -4,9 +4,9 @@
 # Post-freeze fixes never edit this file: they go to config/deviations_log.yaml (reported with both results).
 meta:
   version: 2
-  frozen: false                 # set to true by scripts/freeze_prereg.py after Isaac signs off
-  frozen_at: null
-  git_commit: null
+  frozen: true                 # set to true by scripts/freeze_prereg.py after Isaac signs off
+  frozen_at: "2026-11-19T13:58:23Z"
+  git_commit: "e037be66f443c558fc2a3395164bb46ec1075cf8"
   wording: >-
     Parameters frozen and published before any CRSP data was downloaded. 2020-11 onward was seen in the original
     100-stock study (the frozen configuration was chosen on 2021-22 there), so 2023-25 is "previously observed,
