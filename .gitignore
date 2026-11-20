@@ -17,6 +17,7 @@ __pycache__/
 03_intraday_anomaly_replication/
 04_cocoa_satellite_alpha/
 05_review_tone_alpha/
+07_crypto_insider_replication/
 
 # Environments / IDE
 venv/
