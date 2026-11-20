@@ -28,7 +28,7 @@ from . import data as D
 from . import hedge as HG
 from .selection import trade_months
 
-REASONS = {1: "reversion", 2: "stop-loss", 3: "time stop", 4: "month end"}
+REASONS = {1: "reversion", 2: "stop-loss", 3: "time stop", 4: "month end", 5: "delisting"}
 
 
 # --------------------------------------------------------------------------------- bar data
@@ -74,9 +74,17 @@ class MonthResult:
     signals: dict = field(default=None)
 
 
-def simulate(z, beta, Cy, Cx, Ey, Ex, fresh, entry, exit_, stop, tstop, w_gross):
+def simulate(z, beta, Cy, Cx, Ey, Ex, fresh, entry, exit_, stop, tstop, w_gross,
+             dead=None, short_ok=None, no_entry=None):
     """Run the entry/exit state machine. All inputs are (n_bars, lanes) or (lanes,).
-    Returns share holdings of each leg after each bar's orders, and the trade list."""
+    Returns share holdings of each leg after each bar's orders, and the trade list.
+
+    CRSP extensions (all optional, so the minute-bar path is unchanged):
+      dead      (n, lanes) bool: a leg of the pair has its last row here. An open pair is closed on this row
+                (reason 5, "delisting"); the caller prices both legs at this row's close (review B1).
+      short_ok  (ok_y, ok_x), each (n, lanes) bool: False forbids opening a position that is short that leg
+                (2008 short-sale ban proxy, review M13). Positions already open are not touched.
+      no_entry  (n, lanes) bool: no new position may be opened on this row (dead leg at the fill, missing fill price)."""
     n, L = z.shape
     pos = np.zeros(L, dtype=np.int8)
     age = np.zeros(L)
@@ -98,12 +106,13 @@ def simulate(z, beta, Cy, Cx, Ey, Ex, fresh, entry, exit_, stop, tstop, w_gross)
             stp = fin & (az >= stop)
             tim = age >= tstop
             end = np.full(L, t == n - 1)
-            ex = open_ & (rev | stp | tim | end)
+            dl = dead[t] if dead is not None else np.zeros(L, dtype=bool)
+            ex = open_ & (rev | stp | tim | end | dl)
             if ex.any():
-                reason = np.where(stp, 2, np.where(tim, 3, np.where(rev, 1, 4)))
+                reason = np.where(dl, 5, np.where(stp, 2, np.where(tim, 3, np.where(rev, 1, 4))))
                 for lane in np.nonzero(ex)[0]:
                     trades.append((lane, t0[lane], t, reason[lane], pos[lane]))
-                blocked |= ex & (stp | tim)
+                blocked |= ex & (stp | tim) & ~dl
                 pos[ex] = 0
                 cur_y[ex] = 0.0
                 cur_x[ex] = 0.0
@@ -113,8 +122,13 @@ def simulate(z, beta, Cy, Cx, Ey, Ex, fresh, entry, exit_, stop, tstop, w_gross)
         if t < n - 1:
             bt = beta[t]
             can = (pos == 0) & ~ex & ~blocked & fin & fresh[t] & (bt >= lo) & (bt <= hi)
-            sh = can & (zt > entry) & (zt < stop)
-            lg = can & (zt < -entry) & (zt > -stop)
+            if no_entry is not None:
+                can &= ~no_entry[t]
+            sh = can & (zt > entry) & (zt < stop)             # short y, long x
+            lg = can & (zt < -entry) & (zt > -stop)           # long y, short x
+            if short_ok is not None:
+                sh &= short_ok[0][t]
+                lg &= short_ok[1][t]
             new = sh | lg
             if new.any():
                 p = np.where(lg, 1, -1)
@@ -131,9 +145,30 @@ def simulate(z, beta, Cy, Cx, Ey, Ex, fresh, entry, exit_, stop, tstop, w_gross)
     return hy, hx, trades
 
 
-def run_month(bd: BarData, month: pd.Period, pairs: pd.DataFrame, methods, entries, exits,
-              half_spread: pd.Series, cost_mult: float = 1.0, return_signals: bool = False) -> MonthResult | None:
-    """Backtest the selected `pairs` of one month for every (method, entry, exit) combination."""
+def _open_nan_check(a: np.ndarray, held: np.ndarray, what: str, lane_pair, pairs, rows, bd) -> None:
+    """Raise if `a` is not finite where a position is involved (no silent NaN handling, review B1)."""
+    bad = held & ~np.isfinite(a)
+    if bad.any():
+        r, l = map(int, np.argwhere(bad)[0])
+        p = pairs.iloc[lane_pair[l]]
+        raise AssertionError(f"NaN {what} while a position is open: pair ({p['y']}, {p['x']}) "
+                             f"on {bd.days[rows[r]].date()} ({int(bad.sum())} cells)")
+
+
+def run_month(bd, month: pd.Period, pairs: pd.DataFrame, methods, entries, exits,
+              half_spread, cost_mult: float = 1.0, return_signals: bool = False,
+              cost_fn=None, n_pairs: int | None = None) -> MonthResult | None:
+    """Backtest the selected `pairs` of one month for every (method, entry, exit) combination.
+
+    `bd` is a BarData (minute path, unchanged) or a contracts.DailyBars (``bars_per_hour is None``). Extras:
+      cost_fn   contracts.CostFn replacing the default `costs.leg_cost_bps` path;
+      n_pairs   slot count that sets the leg weight LEVERAGE / n_pairs (default C.N_PAIRS; 20 for the
+                pre-registered secondary series);
+    and for daily bars: the time stop is 3 x `pairs["hl_days"]` trading days, `bd.dead` force-closes a pair
+    on a leg's last row (reason "delisting", both legs at that row's close), `bd.short_ok` blocks new short
+    legs, `bd.borrow_fee` sets per-stock borrow, and any NaN price while a position is open raises.
+    `half_spread` is positional over the panel columns (bps, previous-month estimate)."""
+    daily = bd.bars_per_hour is None
     rows = np.nonzero(bd.month == month)[0]
     if len(rows) < 2 or pairs.empty:
         return None
@@ -170,30 +205,87 @@ def run_month(bd: BarData, month: pd.Period, pairs: pd.DataFrame, methods, entri
     entry = np.array([combos[q][1] for q in lane_combo])
     exit_ = np.array([combos[q][2] for q in lane_combo])
     stop = entry + C.STOP_Z_ADD
-    tstop = np.maximum(1, pairs["hl_hours"].to_numpy(float)[lane_pair] * C.TIME_STOP_HALF_LIVES * bd.bars_per_hour)
+    if daily:       # half-lives in trading days, one bar per day: time stop = 3 x hl_days bars
+        hl = pairs["hl_days"].to_numpy(float)[lane_pair]
+        tstop = np.maximum(1, hl * C.TIME_STOP_HALF_LIVES)
+    else:
+        hl = pairs["hl_hours"].to_numpy(float)[lane_pair]
+        tstop = np.maximum(1, hl * C.TIME_STOP_HALF_LIVES * bd.bars_per_hour)
 
     Cm, Em = bd.close[rows], bd.exec[rows].copy()
     Em[-1] = Cm[-1]                                      # month-end exit on the close
     Cy, Cx = Cm[:, iy][:, lane_pair], Cm[:, ix][:, lane_pair]
     Ey, Ex = Em[:, iy][:, lane_pair], Em[:, ix][:, lane_pair]
     fresh = (bd.fresh[rows][:, iy] & bd.fresh[rows][:, ix])[:, lane_pair]
-    w_gross = C.LEVERAGE / C.N_PAIRS
-    hy, hx, trades = simulate(z, beta, Cy, Cx, Ey, Ex, fresh, entry, exit_, stop, tstop, w_gross)
+    w_gross = C.LEVERAGE / (C.N_PAIRS if n_pairs is None else n_pairs)
+    dead_l = ok_y = ok_x = no_entry = None
+    if daily:
+        fd = bd.fill_day[rows]                                      # row each order is filled on
+        dead_all = bd.dead[rows]
+        dead_l = (dead_all[:, iy] | dead_all[:, ix])[:, lane_pair]
+        dead_fill = (bd.dead[fd][:, iy] | bd.dead[fd][:, ix])[:, lane_pair]
+        Ey, Ex = np.where(dead_l, Cy, Ey), np.where(dead_l, Cx, Ex)  # delisting exit: both legs at this close
+        ok_y = bd.short_ok[fd][:, iy][:, lane_pair]
+        ok_x = bd.short_ok[fd][:, ix][:, lane_pair]
+        no_entry = dead_l | dead_fill | ~np.isfinite(Ey) | ~np.isfinite(Ex)
+        no_entry[-1] = True
+    hy, hx, trades = simulate(z, beta, Cy, Cx, Ey, Ex, fresh, entry, exit_, stop, tstop, w_gross,
+                              dead=dead_l, short_ok=None if not daily else (ok_y, ok_x), no_entry=no_entry)
 
     # ---- P&L ----------------------------------------------------------------------------
     n = len(rows)
     nxt = np.minimum(np.arange(n) + 1, n - 1)
     hy0 = np.vstack([np.zeros((1, L)), hy[:-1]])
     hx0 = np.vstack([np.zeros((1, L)), hx[:-1]])
-    g = (hy0 * (Ey - Cy) + hy * (Cy[nxt] - Ey)) + (hx0 * (Ex - Cx) + hx * (Cx[nxt] - Ex))
-    g[-1] = hy0[-1] * (Ey[-1] - Cy[-1]) + hx0[-1] * (Ex[-1] - Cx[-1])
     fac = bd.factor[rows]
-    hs = half_spread.to_numpy(dtype=float)
-    cy_bps = TC.leg_cost_bps(hs[iy][None, :], Em[:, iy] * fac[:, iy], cost_mult)[:, lane_pair]
-    cx_bps = TC.leg_cost_bps(hs[ix][None, :], Em[:, ix] * fac[:, ix], cost_mult)[:, lane_pair]
-    cost = (np.abs(hy - hy0) * Ey * cy_bps + np.abs(hx - hx0) * Ex * cx_bps) / 1e4
-    short_val = np.abs(np.minimum(hy, 0)) * Cy + np.abs(np.minimum(hx, 0)) * Cx
-    borrow = short_val * C.BORROW_FEE_ANNUAL * bd.dt_days / C.TRADING_DAYS
+    if daily:
+        # NaN prices are only allowed where no position is involved: 0 x NaN is not a P&L
+        for h, c, e, nm in [(hy0, Cy, Ey, "y"), (hx0, Cx, Ex, "x")]:
+            _open_nan_check(c, h != 0, f"close of {nm}", lane_pair, pairs, rows, bd)
+            _open_nan_check(e, (h != 0) | (np.vstack([h[1:], np.zeros((1, L))]) != 0), f"fill of {nm}",
+                            lane_pair, pairs, rows, bd)
+        for h, c, nm in [(hy, Cy, "y"), (hx, Cx, "x")]:
+            _open_nan_check(c[nxt], (h != 0) & (np.arange(n) < n - 1)[:, None], f"next close of {nm}",
+                            lane_pair, pairs, rows, bd)
+        sf = lambda h, d: np.where(h != 0, h * np.where(h != 0, d, 0.0), 0.0)
+        g = (sf(hy0, Ey - Cy) + sf(hy, Cy[nxt] - Ey)) + (sf(hx0, Ex - Cx) + sf(hx, Cx[nxt] - Ex))
+        g[-1] = sf(hy0[-1], Ey[-1] - Cy[-1]) + sf(hx0[-1], Ex[-1] - Cx[-1])
+    else:
+        g = (hy0 * (Ey - Cy) + hy * (Cy[nxt] - Ey)) + (hx0 * (Ex - Cx) + hx * (Cx[nxt] - Ex))
+        g[-1] = hy0[-1] * (Ey[-1] - Cy[-1]) + hx0[-1] * (Ex[-1] - Cx[-1])
+    hs = np.asarray(half_spread, dtype=float)
+    if daily:
+        assert hs.shape == (len(bd.permnos),), "half_spread must be positional over the panel columns"
+        if not np.isfinite(hs[np.concatenate([iy, ix])]).all():
+            raise ValueError(f"missing half-spread for a selected stock in {month}")
+        if cost_fn is None:
+            cost_fn = lambda h, px, rr, cc, mult: TC.leg_cost_bps(h[None, :], px, mult)   # TC cap/tick: minute defaults
+        ly_, lx_ = iy[lane_pair], ix[lane_pair]            # per lane, so delisting exits are priced at the close
+        cy_bps = cost_fn(hs[ly_], Ey * fac[:, ly_], rows, ly_, cost_mult)
+        cx_bps = cost_fn(hs[lx_], Ex * fac[:, lx_], rows, lx_, cost_mult)
+        dy, dx_ = np.abs(hy - hy0), np.abs(hx - hx0)
+        # a worthless delisting (TR 0) has nothing left to trade: no cost (0 x the undefined bps is not a cost)
+        cost = (np.where(dy > 0, dy * np.where((dy > 0) & (Ey > 0), Ey * cy_bps, 0.0), 0.0)
+                + np.where(dx_ > 0, dx_ * np.where((dx_ > 0) & (Ex > 0), Ex * cx_bps, 0.0), 0.0)) / 1e4
+        if not np.isfinite(cost).all():
+            raise AssertionError("non-finite transaction cost on a traded leg")
+        if bd.borrow_fee is not None:
+            fee_y, fee_x = bd.borrow_fee[iy][lane_pair][None, :], bd.borrow_fee[ix][lane_pair][None, :]
+        else:
+            fee_y = fee_x = C.BORROW_FEE_ANNUAL
+        short_val = (np.where(hy < 0, -hy * np.where(hy < 0, Cy, 0.0), 0.0) * fee_y
+                     + np.where(hx < 0, -hx * np.where(hx < 0, Cx, 0.0), 0.0) * fee_x)
+        borrow = short_val * bd.dt_days / C.TRADING_DAYS
+    else:
+        if cost_fn is None:
+            cy_bps = TC.leg_cost_bps(hs[iy][None, :], Em[:, iy] * fac[:, iy], cost_mult)[:, lane_pair]
+            cx_bps = TC.leg_cost_bps(hs[ix][None, :], Em[:, ix] * fac[:, ix], cost_mult)[:, lane_pair]
+        else:
+            cy_bps = cost_fn(hs[iy], Em[:, iy] * fac[:, iy], rows, iy, cost_mult)[:, lane_pair]
+            cx_bps = cost_fn(hs[ix], Em[:, ix] * fac[:, ix], rows, ix, cost_mult)[:, lane_pair]
+        cost = (np.abs(hy - hy0) * Ey * cy_bps + np.abs(hx - hx0) * Ex * cx_bps) / 1e4
+        short_val = np.abs(np.minimum(hy, 0)) * Cy + np.abs(np.minimum(hx, 0)) * Cx
+        borrow = short_val * C.BORROW_FEE_ANNUAL * bd.dt_days / C.TRADING_DAYS
 
     day_g = bd.day[rows][nxt]
     day_c = getattr(bd, "fill_day", bd.day)[rows].copy()      # costs are booked when the fill happens
@@ -201,8 +293,13 @@ def run_month(bd: BarData, month: pd.Period, pairs: pd.DataFrame, methods, entri
     ud = np.unique(np.concatenate([day_g, day_c, bd.day[rows]]))
     pos_g, pos_c = np.searchsorted(ud, day_g), np.searchsorted(ud, day_c)
     G = np.zeros((len(ud), L)); Cc = np.zeros((len(ud), L)); B = np.zeros((len(ud), L))
-    np.add.at(G, pos_g, np.nan_to_num(g))
-    np.add.at(Cc, pos_c, cost)
+    np.add.at(G, pos_g, g if daily else np.nan_to_num(g))
+    if daily:       # a delisting exit is filled on its own row's close, not on the next day
+        cost_dead = np.where(dead_l, cost, 0.0)
+        np.add.at(Cc, pos_c, cost - cost_dead)
+        np.add.at(Cc, np.searchsorted(ud, bd.day[rows]), cost_dead)
+    else:
+        np.add.at(Cc, pos_c, cost)
     np.add.at(B, np.searchsorted(ud, bd.day[rows]), borrow)
     idx = bd.days[ud]
     slot = pairs["slot"].to_numpy() if "slot" in pairs else np.arange(P)
@@ -213,6 +310,7 @@ def run_month(bd: BarData, month: pd.Period, pairs: pd.DataFrame, methods, entri
     gross, costf, borf = mk(G), mk(Cc), mk(B)
 
     # ---- trade list -----------------------------------------------------------------------
+    hl_name = "hl_days" if daily else "hl_hours"
     tr = []
     for lane, a, b_, reason, side in trades:
         p = lane_pair[lane]
@@ -223,7 +321,7 @@ def run_month(bd: BarData, month: pd.Period, pairs: pd.DataFrame, methods, entri
         tr.append({"month": str(month), "method": m, "entry": e, "exit": x, "slot": slot[p], "y": pairs["y"].iloc[p],
                    "x": pairs["x"].iloc[p], "side": int(side), "open": bd.ts[rows[a]], "close": bd.ts[rows[b_]],
                    "bars": int(b_ - a), "reason": REASONS[int(reason)], "gross": pnl, "cost": c, "borrow": bw,
-                   "hl_hours": pairs["hl_hours"].iloc[p], "p_eg": pairs["p_eg"].iloc[p],
+                   hl_name: pairs[hl_name].iloc[p], "p_eg": pairs["p_eg"].iloc[p],
                    "z_entry": z[a, lane]})
     sig = None
     if return_signals:
@@ -232,13 +330,18 @@ def run_month(bd: BarData, month: pd.Period, pairs: pd.DataFrame, methods, entri
                        trades=pd.DataFrame(tr), signals=sig)
 
 
-def run(bd: BarData, selected: dict[str, pd.DataFrame], half_spread: pd.DataFrame,
+def run(bd, selected: dict[str, pd.DataFrame], half_spread: pd.DataFrame,
         methods=C.HEDGE_METHODS, entries=C.ENTRY_Z, exits=C.EXIT_Z, cost_mult: float = 1.0,
-        keep_slot: bool = False) -> dict:
+        keep_slot: bool = False, months=None, cost_fn=None, n_pairs: int | None = None) -> dict:
     """Walk forward over all trading months. `selected[month]` = pairs chosen for that month;
-    `half_spread` = (month x ticker) half-spread estimates *from the previous month*.
+    `half_spread` = (month x column) half-spread estimates *from the previous month*.
     Returns daily P&L frames (net, gross, cost, borrow) with one column per parameter combination
-    (or per combination and `slot` label if keep_slot, e.g. to run many random portfolios at once)."""
+    (or per combination and `slot` label if keep_slot, e.g. to run many random portfolios at once).
+
+    `months` defaults to `selection.trade_months()` (the minute-bar study). For DailyBars a month that has
+    pairs but no row in `half_spread` raises instead of trading at zero cost."""
+    daily = bd.bars_per_hour is None
+    months = trade_months() if months is None else pd.PeriodIndex(months, freq="M")
     parts = {"net": [], "gross": [], "cost": [], "borrow": []}
     trades = []
     levels = ["method", "entry", "exit"] + (["slot"] if keep_slot else [])
@@ -249,14 +352,20 @@ def run(bd: BarData, selected: dict[str, pd.DataFrame], half_spread: pd.DataFram
     else:
         combos = pd.MultiIndex.from_tuples([(m, e, x) for m in methods for e in entries for x in exits],
                                            names=levels)
-    for month in trade_months():
+    for month in months:
         key = str(month)
         pairs = selected.get(key)
         rows = np.nonzero(bd.month == month)[0]
         days = bd.days[np.unique(bd.day[rows])]
-        hs = half_spread.loc[month] if month in half_spread.index else pd.Series(0.0, index=half_spread.columns)
+        has = pairs is not None and len(pairs) > 0
+        if month in half_spread.index:
+            hs = half_spread.loc[month]
+        elif daily and has:
+            raise KeyError(f"no half-spread row for {month}: refusing to trade at zero cost")
+        else:
+            hs = pd.Series(0.0, index=half_spread.columns)
         res = run_month(bd, month, pairs if pairs is not None else pd.DataFrame(), methods, entries, exits,
-                        hs, cost_mult) if pairs is not None and len(pairs) else None
+                        hs, cost_mult, cost_fn=cost_fn, n_pairs=n_pairs) if has else None
         for k, frame in zip(["net", "gross", "cost", "borrow"],
                             [None if res is None else getattr(res, a) for a in ["daily", "gross", "cost", "borrow"]]):
             if frame is None:

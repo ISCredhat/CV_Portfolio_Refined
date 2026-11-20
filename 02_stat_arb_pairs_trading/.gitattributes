@@ -1,0 +1,4 @@
+# Hash-checked files keep LF bytes on every checkout (core.autocrlf=true would otherwise change their sha256).
+config/preregistration.yaml text eol=lf
+config/preregistration.sha256 text eol=lf
+data/reference/Siccodes48.txt text eol=lf
