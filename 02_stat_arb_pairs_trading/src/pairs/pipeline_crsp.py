@@ -240,17 +240,37 @@ def run_ggr(tr: pd.DataFrame, first_start: str, last_start: str, wait: int, trad
     return ggr_tables(res, periods)
 
 
-def first_permco(raw_dir: Path, start, end) -> pd.Series:
-    """PERMNO -> PERMCO on its first ``dsf_v2`` row in [start, end], read a year at a time: what one panel over the
-    whole range gives (``Panel.permco``), which a block panel alone would not."""
+def permno_info(raw_dir: Path, start, end) -> pd.DataFrame:
+    """Per PERMNO over the ``dsf_v2`` rows in [start, end], read a year at a time: ``permco`` on its first row
+    (what one panel over the whole range gives as ``Panel.permco``) and ``last_date``, its last row. A block panel
+    alone knows neither."""
     a, b = pd.Timestamp(start), pd.Timestamp(end)
-    firsts = []
+    parts = []
     for y in range(a.year, b.year + 1):
         d = R.read_chunks(raw_dir, "dsf_v2", [y], columns=["permno", "permco", "dlycaldt"])
         d["dlycaldt"] = pd.to_datetime(d["dlycaldt"])
         d = d[(d["dlycaldt"] >= a) & (d["dlycaldt"] <= b)].sort_values(["permno", "dlycaldt"], kind="stable")
-        firsts.append(d.groupby("permno")["permco"].first())
-    return pd.concat(firsts).groupby(level=0).first()
+        g = d.groupby("permno")
+        parts.append(pd.DataFrame({"permco": g["permco"].first(), "last_date": g["dlycaldt"].max()}))
+    allp = pd.concat(parts)
+    g = allp.groupby(level=0)
+    return pd.DataFrame({"permco": g["permco"].first(), "last_date": g["last_date"].max()})
+
+
+def block_prices(panel: R.Panel, continues: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """TR prices and delisting flags of a block panel as one panel over the whole sample would have them.
+    ``ffill_within_life`` carries a price over no-price days only up to a stock's last finite price, and
+    ``build_panel`` flags a stock's last row as its exit; inside a block both are wrong for a stock whose rows
+    `continue` after the block (for example a stock that left its exchange, has CIZ rows without prices for years
+    and is listed again later): its no-price tail is carried at the last price, as the whole-sample panel does,
+    and it has no exit in the block (a CIZ delisting row is always a stock's last row, so it cannot be one)."""
+    tr = R.ffill_within_life(panel.tr)
+    dead = panel.dead.copy()
+    if continues.any():
+        tail = np.vstack([panel.tr[:, continues], np.ones((1, int(continues.sum())))])
+        tr[:, continues] = R.ffill_within_life(tail)[:-1]
+        dead[:, continues] = False
+    return tr, dead
 
 
 def run_ggr_blocks(raw_dir: Path, names: pd.DataFrame, delist: pd.DataFrame | None, cfgs: dict,
@@ -262,15 +282,15 @@ def run_ggr_blocks(raw_dir: Path, names: pd.DataFrame, delist: pd.DataFrame | No
     clipped to the sample) from the chunks under `raw_dir`, builds a panel of all its stocks and runs every
     configuration in `cfgs` (label -> GGRConfig) on it; `ggr.assemble` joins the blocks. The returns and pair
     choices equal those of one panel over the whole sample (test_run_crsp checks this on synthetic data):
-    the formation and trading windows see the same rows, PERMCO comes from `first_permco`, and the lead-out keeps
-    a block's end from marking live stocks as delisted. Returns label -> `ggr_tables` output."""
+    the formation and trading windows see the same rows, PERMCO comes from `permno_info`, and `block_prices` treats
+    a stock whose rows continue after the block as the whole-sample panel does. Returns label -> `ggr_tables`."""
     first = pd.Period(first_start or CC.GGR_FIRST_TRADE_MONTH, "M")
     last = pd.Period(last_start, "M") if last_start else pd.Period(CC.GGR_LAST_TRADE_MONTH, "M") - 5
     fm = max(c.formation_months for c in cfgs.values())
     tm = max(c.trading_months for c in cfgs.values())
     g0 = (first - fm).start_time
     g1 = (last + tm).start_time - pd.Timedelta(days=1)
-    permco = first_permco(raw_dir, g0, g1)
+    info = permno_info(raw_dir, g0, g1)
     cols = R.panel_columns(raw_dir, GGR_COLUMNS)
     starts = pd.period_range(first, last, freq="M")
     parts: dict[str, list] = {k: [] for k in cfgs}
@@ -280,13 +300,15 @@ def run_ggr_blocks(raw_dir: Path, names: pd.DataFrame, delist: pd.DataFrame | No
         b = min(g1, (s1 + tm).start_time - pd.Timedelta(days=1) + pd.DateOffset(months=lead_out_months))
         log(f"GGR starts {s0}..{s1} (rows {a.date()}..{b.date()})")
         gp = R.build_panel(R.load_dsf(raw_dir, str(a.date()), str(b.date()), columns=cols), names, delist)
-        tr = pd.DataFrame(R.ffill_within_life(gp.tr), index=gp.days, columns=gp.permnos)
-        pc = permco.reindex(gp.permnos).fillna(-1).astype("int64").to_numpy()
+        nxt = info.reindex(gp.permnos)
+        X, dead = block_prices(gp, (nxt["last_date"] > gp.days[-1]).to_numpy())
+        tr = pd.DataFrame(X, index=gp.days, columns=gp.permnos)
+        pc = nxt["permco"].fillna(-1).astype("int64").to_numpy()
         uni = ggr_share_universe(gp.days, gp.permnos, names, fm, share_filter)
         for k, cfg in cfgs.items():
-            parts[k].append(G.run_parts(tr, str(s0), str(s1), cfg, dead=gp.dead, universe=uni, traded=gp.fresh,
+            parts[k].append(G.run_parts(tr, str(s0), str(s1), cfg, dead=dead, universe=uni, traded=gp.fresh,
                                         permco=pc))
-        del gp, tr
+        del gp, tr, X, dead
     return {k: ggr_tables(G.assemble(v), periods) for k, v in parts.items()}
 
 

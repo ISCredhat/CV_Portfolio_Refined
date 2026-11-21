@@ -47,6 +47,28 @@ def with_a_delisting(d: dict, cut: str = "1994-09-15") -> dict:
     return d
 
 
+def with_a_halt(d: dict, start: str = "1994-03-15", end: str = "1996-02-15") -> dict:
+    """A copy where another ordinary share that trades every day before `start` keeps CIZ rows without prices or
+    returns (dlyprcflg 'NT', as after leaving its exchange) from `start` to `end`, then trades again: the no-price
+    span crosses several block ends."""
+    d = dict(d)
+    dsf = d["dsf_v2"].copy()
+    dsf["dlycaldt"] = pd.to_datetime(dsf["dlycaldt"])
+    a, b = pd.Timestamp(start), pd.Timestamp(end)
+    w = dsf[(dsf["dlycaldt"] >= a - pd.DateOffset(months=18)) & (dsf["dlycaldt"] < a)]
+    traded = ((w["dlyprcflg"] == "TR") & (w["dlyvol"] > 0)).groupby(w["permno"]).agg(["all", "size"])
+    ns = set(d["stocknames_v2"].loc[d["stocknames_v2"]["sharetype"] == "NS", "permno"])
+    late = set(dsf.loc[dsf["dlycaldt"] >= pd.Timestamp("1997-06-30"), "permno"])
+    ok = traded[traded["all"] & (traded["size"] == traded["size"].max())].index
+    p = int([q for q in ok if q in ns and q in late][-1])
+    m = (dsf["permno"] == p) & (dsf["dlycaldt"] >= a) & (dsf["dlycaldt"] <= b)
+    dsf.loc[m, ["dlyprc", "dlyret", "dlyvol"]] = np.nan
+    dsf.loc[m, "dlyprcflg"] = "NT"
+    d["dsf_v2"] = dsf.reset_index(drop=True)
+    d["halted"] = p
+    return d
+
+
 def write_chunks(raw: Path, d: dict) -> Path:
     """The download layout: dsf_v2 one parquet per calendar year, other keys all.parquet."""
     (raw / "dsf_v2").mkdir(parents=True)
@@ -89,7 +111,7 @@ def test_ever_top_n_chunked_equals_the_one_frame_version(tmp_path):
 
 
 def test_ggr_blocks_equal_one_panel_over_the_whole_sample(tmp_path):
-    d = with_a_delisting(data())
+    d = with_a_halt(with_a_delisting(data()))
     raw = write_chunks(tmp_path, d)
     names, delist = d["stocknames_v2"], d["dsedelist"]
     first, last = "1991-03", "1997-06"
@@ -114,6 +136,11 @@ def test_ggr_blocks_equal_one_panel_over_the_whole_sample(tmp_path):
         pd.testing.assert_frame_equal(b["table2"], one["table2"], rtol=1e-10, atol=1e-14)
         assert b["stats"] == pytest.approx(one["stats"], rel=1e-12, nan_ok=True)
         n_delist += one["stats"]["delisting_exits"]
+        if k == "all_w1":                                 # the halted stock is held across a block end
+            tt = G.run(pd.DataFrame(R.ffill_within_life(gp.tr), index=gp.days, columns=gp.permnos), first, last,
+                       c, dead=gp.dead, universe=uni, traded=gp.fresh, permco=gp.permco).trades
+            h = tt[(tt["y"] == d["halted"]) | (tt["x"] == d["halted"])]
+            assert ((h["open"] < pd.Timestamp("1994-03-15")) & (h["close"] > pd.Timestamp("1994-03-15"))).any()
     assert n_delist > 0                                   # delisting exits are exercised
 
 

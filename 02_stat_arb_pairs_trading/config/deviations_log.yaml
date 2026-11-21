@@ -59,3 +59,26 @@
     of a held leg would have stopped the run with "non-finite transaction cost on a traded leg".
   result_before: none (the run would have crashed)
   result_after: n/a (first run)
+- id: D6
+  date: "2026-11-21"
+  what: >-
+    pipeline_crsp.run_ggr_blocks: a stock whose dsf_v2 rows continue after a block (permno_info gives each PERMNO's
+    last row over 1962-2009) keeps its price carried over a no-price tail and has no exit flag inside the block
+    (block_prices), as one panel over the whole sample has it under the registered rules (prices carried over
+    no-price days inside a stock's life, exits on delisting). D2's block runner had ended such a stock's price at the
+    block, so a held leg went NaN.
+  why: >-
+    the first run stopped in the 1999-07..2001-06 block with "NaN price while a position is open". The leg was
+    PERMNO 87592 in the 101-120 selection for 2001-03: it left AMEX on 2001-05-17 (primaryexch X, tradingstatusflg X),
+    kept CIZ rows without prices (dlyprcflg NT) until it was listed again on 2007-12-07, and was delisted on
+    2009-09-03. Under the registered rules that leg is held at its last price ($0.46) to the end of the trading
+    period while the other leg keeps moving. Legacy CRSP, which GGR and Do & Faff used, would probably have shown a
+    delisting on 2001-05-16, closing the pair that day; the difference is one pair in one portfolio (about 75 days of
+    the other leg's moves) and is not changed here, because it would change the registered exit rule.
+  equivalence: >-
+    test_run_crsp adds a synthetic stock with two years of rows without prices across several block ends; without
+    this fix the blocks stop with the same error, with it they equal the whole-sample panel. The top-20 results of
+    the first run cannot change (a top-20 leg in this situation would have stopped that run too).
+  result_before: >-
+    main analysis and GGR top 20 complete (unaffected); GGR top 5 and 101-120 not produced (the run stopped).
+  result_after: GGR rerun with --ggr-only; see the results folder.
