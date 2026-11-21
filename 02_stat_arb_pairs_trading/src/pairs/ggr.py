@@ -237,6 +237,15 @@ def run(tr: pd.DataFrame, first_start: str, last_start: str, cfg: GGRConfig | No
     universe  optional callable(start_period) -> bool array over columns (e.g. share codes 10/11, or the top-500
               for the bridge run); traded  optional bool frame, False on days without a trade or a valid return;
     permco    optional (n_stocks,) firm id: pairs of share classes of one firm are excluded."""
+    return assemble(run_parts(tr, first_start, last_start, cfg, dead, universe, group, traded, permco))
+
+
+def run_parts(tr: pd.DataFrame, first_start: str, last_start: str, cfg: GGRConfig | None = None,
+              dead: pd.DataFrame | np.ndarray | None = None, universe=None, group: np.ndarray | None = None,
+              traded: pd.DataFrame | np.ndarray | None = None, permco: np.ndarray | None = None) -> dict:
+    """The per-portfolio pieces of `run` (arguments as there): each portfolio's monthly returns and its trade,
+    portfolio and pair rows. Runs over separate blocks of start months join with `assemble` (memory: the
+    replication then never needs the whole 1962-2009 panel at once)."""
     cfg = cfg or GGRConfig()
     days = tr.index
     X = tr.to_numpy(dtype=float)
@@ -271,6 +280,20 @@ def run(tr: pd.DataFrame, first_start: str, last_start: str, cfg: GGRConfig | No
                            "days": t["days"], "reason": t["reason"]})
         ports.append({"start": str(start), "n_selected": n_sel, "n_traded": n_open, "round_trips": len(r["trades"]),
                       "days_open": sum(t["days"] for t in r["trades"]), "n_universe": r["n_universe"]})
+    return {"by_port": by_port, "trades": trades, "ports": ports, "pairs": pairs}
+
+
+def assemble(parts: dict | list[dict]) -> GGRResult:
+    """GGRResult from one `run_parts` output or a list of them in start-month order (blocks must not overlap)."""
+    by_port, trades, ports, pairs = {}, [], [], []
+    for p in [parts] if isinstance(parts, dict) else parts:
+        twice = set(by_port) & set(p["by_port"])
+        if twice:
+            raise ValueError(f"portfolio start(s) in two blocks: {sorted(map(str, twice))[:3]}")
+        by_port.update(p["by_port"])
+        trades += p["trades"]
+        ports += p["ports"]
+        pairs += p["pairs"]
     if not by_port:
         raise ValueError("no GGR portfolio could be formed")
     monthly = aggregate(by_port)

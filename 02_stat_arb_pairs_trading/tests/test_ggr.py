@@ -6,6 +6,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from pairs import ggr as G  # noqa: E402
@@ -152,3 +153,16 @@ def test_dofaff_table1_and_table2():
     sh = t2["share"].to_numpy()
     assert np.allclose(sh, [0.1, 0.2, 0.4, 0.3]) and np.isclose(t2.loc[("p", 2), "avg_monthly_payoff"], -0.015)
     assert np.isclose(t2.loc[("p", 3), "avg_rt_days"], 37.5) and np.isclose(t2.loc[("p", 4), "avg_rt_days"], 20.0)
+
+
+def test_run_equals_assembled_parts_of_two_blocks():
+    tr = _market(2)
+    cfg = G.GGRConfig(selection=(1, 6), wait=1)
+    one = G.run(tr, "2019-01", "2020-06", cfg)
+    two = G.assemble([G.run_parts(tr, "2019-01", "2019-09", cfg), G.run_parts(tr, "2019-10", "2020-06", cfg)])
+    pd.testing.assert_frame_equal(one.monthly, two.monthly)
+    pd.testing.assert_frame_equal(one.pairs, two.pairs)
+    pd.testing.assert_frame_equal(one.trades, two.trades)
+    assert one.stats == two.stats
+    with pytest.raises(ValueError):
+        G.assemble([G.run_parts(tr, "2019-01", "2019-09", cfg), G.run_parts(tr, "2019-09", "2019-10", cfg)])

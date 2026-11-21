@@ -149,6 +149,7 @@ def test_build_daily_bars_modes():
     for t, j in nf:
         assert o.exec[t, j] == o.close[t + 1, j]
     live = np.isfinite(p.tr)                       # stale (carried) cells are tested in test_ffill_within_life
+    live &= ~(p.dead & ~np.isfinite(p.prc))         # unpriced delisting rows: test_unpriced_delisting_row_...
     np.testing.assert_allclose(c.factor[live], (p.prc / p.tr)[live])
     assert c.exch.dtype == object and c.fresh.dtype == bool and c.dt_days == 1.0 and c.bars_per_hour is None
 
@@ -247,3 +248,22 @@ def test_ffill_within_life_never_fills_before_listing_or_after_death():
     f = R2.ffill_within_life(a)
     assert np.isnan(f[0, 0]) and f[2, 0] == 1.0 and f[3, 0] == 2.0 and np.isnan(f[4, 0])   # col 0 dies at row 3
     assert f[1, 1] == 1.0 and np.isnan(f[3, 1]) and np.isnan(f[4, 1])                       # col 1 dies at row 2
+
+
+def test_unpriced_delisting_row_keeps_the_last_share_factor():
+    """CIZ 'DA' (price 0, return present) and 'DM' rows are exits at the TR close; their share factor is the last
+    priced row's, so the raw value for ticks and commissions is last price x (1 + return), never NaN (a NaN there
+    made the cost of a merger exit non-finite)."""
+    from pairs.synthetic_crsp import make_crsp
+    d = make_crsp(5, "1990-01-02", "1997-12-31", 120)
+    p = crsp.build_panel(d["dsf_v2"], d["stocknames_v2"], d["dsedelist"])
+    y = d["dsf_v2"][d["dsf_v2"]["dlydelflg"] == "Y"]
+    unpriced = y[~(pd.to_numeric(y["dlyprc"], errors="coerce") > 0)]
+    assert set(unpriced["dlyprcflg"]) >= {"DA", "DM"}
+    for mode in ("t1_close", "t_close"):
+        b = crsp.build_daily_bars(p, mode, ff48={})
+        for e in unpriced.itertuples():
+            t, j = p.days.get_loc(pd.Timestamp(e.dlycaldt)), int(np.searchsorted(p.permnos, e.permno))
+            assert p.dead[t, j] and np.isfinite(b.close[t, j]) and np.isfinite(b.factor[t, j])
+            assert b.factor[t, j] == b.factor[t - 1, j]
+            assert np.isclose(b.close[t, j] * b.factor[t, j], p.prc[t - 1, j] * b.close[t, j] / b.close[t - 1, j])

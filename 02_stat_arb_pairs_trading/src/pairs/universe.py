@@ -110,3 +110,25 @@ def ever_top_n(dsf: pd.DataFrame, names: pd.DataFrame, months, top_n: int = CC.U
             continue
         keep.update(int(p) for p in u["permno"])
     return np.array(sorted(keep), dtype="int64")
+
+
+EVER_COLUMNS = ("permno", "permco", "dlycaldt", "dlyret", "dlyprc", "dlyvol", "dlyprcflg", "dlydelflg", "dlycap",
+                "shrout", "primaryexch")      # what the universe filters read (price, cap, traded share, exchange)
+
+
+def ever_top_n_chunked(raw_dir, names: pd.DataFrame, months, top_n: int = CC.UNIVERSE_TOP_N,
+                       formation_months: int = CC.FORMATION_MONTHS,
+                       share_filter: dict = CC.SHARE_FILTER) -> np.ndarray:
+    """`ever_top_n` without holding the whole sample in memory: the months are taken one calendar year at a time,
+    reading only that year's formation windows and only ``EVER_COLUMNS`` from the ``dsf_v2`` chunks under
+    `raw_dir`. Each month still sees exactly its formation-window rows, so the PERMNOs are the same."""
+    cols = R.panel_columns(raw_dir, EVER_COLUMNS)
+    months = pd.PeriodIndex([pd.Period(m, freq="M") for m in months])
+    keep: set[int] = set()
+    for y in sorted(set(months.year)):
+        ms = months[months.year == y]
+        a = ms.min().start_time - pd.DateOffset(months=formation_months)
+        b = ms.max().start_time - pd.Timedelta(days=1)
+        dsf = R.load_dsf(raw_dir, str(a.date()), str(b.date()), columns=cols)
+        keep.update(int(p) for p in ever_top_n(dsf, names, list(ms), top_n, formation_months, share_filter))
+    return np.array(sorted(keep), dtype="int64")

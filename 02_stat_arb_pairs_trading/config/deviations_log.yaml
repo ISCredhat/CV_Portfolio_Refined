@@ -1,3 +1,61 @@
 # Post-freeze deviations from preregistration.yaml. Not hashed. Each entry: date, what changed, why, and the
 # result both before and after the change.
-[]
+- id: D1
+  date: "2026-11-20"
+  what: >-
+    scripts/run_crsp.py read the frozen flag from a top-level key that does not exist (cfg["frozen"]) instead of
+    meta.frozen, so it refused to run the frozen registration (and would have labelled any run a dry run). It now
+    reads meta.frozen; tests/test_run_crsp.py covers the gate.
+  why: bug found on the first run after the WRDS download; the registration itself is unchanged (its sha256 still
+    verifies).
+  result_before: none (the script exited before reading any data)
+  result_after: the registered run can start
+- id: D2
+  date: "2026-11-20"
+  what: >-
+    Memory only, no change to any rule. run_crsp.py loaded every dsf_v2 column for every PERMNO over 1989-2025
+    (about 58M rows, well over the 16 GB of the PC) and the GGR replication built one panel of all stocks over
+    1962-2009. Now (a) the PERMNOs ever in the top N are found one calendar year at a time
+    (universe.ever_top_n_chunked) and the panel reads only those PERMNOs and the columns it uses; (b) the GGR
+    replication runs in blocks of 24 portfolio start months, each with its formation and trading windows plus a
+    3-month lead-in and 12-month lead-out (pipeline_crsp.run_ggr_blocks, ggr.run_parts / ggr.assemble).
+  why: the one-pass version could not run on the PC.
+  equivalence: >-
+    Tested on synthetic CRSP: the same PERMNO set as ever_top_n on the full frame, and the same GGR monthly
+    returns, Do & Faff tables and statistics as one panel over the whole sample (to 1e-12), including a
+    delisting inside a trading period that spans two blocks. Differences are possible only for a stock whose rows
+    stop for more than 12 months across a block end while it is held.
+  result_before: none
+  result_after: n/a (first run)
+- id: D3
+  date: "2026-11-20"
+  what: >-
+    The GGR replication now applies the registered Do & Faff (2010) sample, ordinary common shares (CRSP share
+    codes 10 and 11: securitytype EQTY, securitysubtype COM, sharetype NS, usincflg Y, issuertype ACOR/CORP),
+    on the stocknames_v2 spell valid on the last formation day. run_crsp.py passed no universe, so ADRs, REITs,
+    closed-end funds and foreign shares would have entered.
+  why: the replication target (replication.ggr.primary_target, plans/02_ggr_dofaff_targets.md) is defined on that
+    sample.
+  result_before: none
+  result_after: n/a (first run)
+- id: D4
+  date: "2026-11-20"
+  what: >-
+    run_crsp.py ran only the top-20 GGR selection. It now also runs the registered top 5 and pairs 101-120 (both
+    timing rules), after the top-20 target. The registered "all pairs" selection is deferred: the GGR engine keeps
+    every pair in memory (about 10M pairs a portfolio in the 1990s), so it needs a streaming version; it will be
+    run later and logged here.
+  why: replication.ggr.selections lists top5, top20, 101-120 and all.
+  result_before: none
+  result_after: n/a (first run)
+- id: D5
+  date: "2026-11-20"
+  what: >-
+    crsp.build_daily_bars: a delisting row without a price (CIZ dlyprcflg DA, price 0 with a return, mostly
+    mergers; DM, return imputed) keeps the share factor of the last priced row, so its exit cost uses the last price
+    x (1 + delisting return) instead of NaN. The exit price and the delisting return were already used; only the
+    raw price for ticks and commissions was missing.
+  why: bug found by the new end-to-end test of run_crsp.py on synthetic data; on WRDS data the first merger exit
+    of a held leg would have stopped the run with "non-finite transaction cost on a traded leg".
+  result_before: none (the run would have crashed)
+  result_after: n/a (first run)

@@ -91,6 +91,24 @@ def _read_parquet(path: Path, columns=None, permnos=None) -> pd.DataFrame:
     return df if columns is None else df[list(columns)]
 
 
+PANEL_COLUMNS = DSF_REQUIRED + DSF_OPTIONAL     # every dsf_v2 column build_panel reads
+
+
+def chunk_columns(raw_dir: Path, key: str = "dsf_v2") -> list[str]:
+    """Column names of the first parquet chunk of `key`, from the file schema (no rows are read)."""
+    import pyarrow.parquet as pq
+    files = sorted((Path(raw_dir) / key).glob("*.parquet"))
+    if not files:
+        raise FileNotFoundError(f"{key}: no parquet files under {Path(raw_dir) / key}")
+    return [str(c) for c in pq.read_schema(files[0]).names]
+
+
+def panel_columns(raw_dir: Path, wanted=PANEL_COLUMNS) -> list[str]:
+    """The `wanted` dsf_v2 columns that the downloaded chunks have, so a load reads only those (memory)."""
+    have = {c.lower(): c for c in chunk_columns(raw_dir, "dsf_v2")}
+    return [have[c] for c in wanted if c in have]
+
+
 def normalise_dsf(df: pd.DataFrame) -> pd.DataFrame:
     """Lower-case columns, check the required ones, types, sort, and refuse duplicate (permno, date)."""
     out = df.copy()
@@ -376,6 +394,12 @@ def build_daily_bars(panel: Panel, exec_mode: str, ff48: pd.Series | dict | None
     panel.diag["stale_price_cells"] = int((np.isfinite(close) & ~np.isfinite(panel.tr)).sum())
     with np.errstate(invalid="ignore", divide="ignore"):
         factor = ffill_within_life(panel.prc) / close
+        # A delisting row without a price (CIZ 'DA': price 0 with a return, mostly mergers; 'DM': imputed return) is
+        # still exited at its TR close, so it keeps the share factor of the last priced row: the raw value used for
+        # ticks and commissions is then the last price x (1 + delisting return), not NaN.
+        r_, c_ = np.nonzero(panel.dead & ~np.isfinite(factor) & np.isfinite(close))
+        prev = r_ > 0
+        factor[r_[prev], c_[prev]] = factor[r_[prev] - 1, c_[prev]]
         open_ok = (panel.open > 0) & (panel.days.values[:, None] >= np.datetime64(CC.OPEN_FIRST_MONTH + "-01"))
         open_tr = np.where(open_ok, close * panel.open / panel.prc, np.nan)
     ex = close.copy()

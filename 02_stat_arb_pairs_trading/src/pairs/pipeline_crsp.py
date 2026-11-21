@@ -191,18 +191,103 @@ def performance_table(res: dict, fz: dict) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+# Do & Faff (2010) sample: ordinary common shares, i.e. CRSP share codes 10 and 11, which in CIZ terms are these
+# stocknames_v2 fields (checked on WRDS 2026-11-19); exchange and trading-status fields are not part of it.
+GGR_SHARE_FILTER = {k: CC.SHARE_FILTER[k] for k in ("securitytype", "securitysubtype", "sharetype", "usincflg",
+                                                    "issuertype")}
+GGR_COLUMNS = ("permno", "permco", "dlycaldt", "dlyret", "dlyprc", "dlyvol", "dlyprcflg", "dlydelflg",
+               "primaryexch")                          # what the GGR panel needs from dsf_v2
+GGR_SELECTIONS = {"top20": (1, 20), "top5": (1, 5), "p101_120": (101, 120)}   # registered; "all" is deferred
+
+
+def ggr_periods() -> dict:
+    return {"1962-1988": (CC.GGR_FIRST_TRADE_MONTH, "1988-12"), "1989-2002": ("1989-01", "2002-12"),
+            "2003-2009": ("2003-01", CC.GGR_LAST_TRADE_MONTH),
+            "full": (CC.GGR_FIRST_TRADE_MONTH, CC.GGR_LAST_TRADE_MONTH)}
+
+
+def ggr_share_universe(days: pd.DatetimeIndex, permnos, names: pd.DataFrame, formation_months: int = 12,
+                       share_filter: dict = GGR_SHARE_FILTER):
+    """Callable(start month) -> bool over `permnos`: ordinary common shares on the ``stocknames_v2`` spell valid
+    on the last formation day (point in time, as the main universe)."""
+    spells = R.name_spells(names)
+    permnos = np.asarray(permnos, dtype="int64")
+
+    def universe(start) -> np.ndarray:
+        rows = G._window(days, pd.Period(start, "M") - formation_months, formation_months)
+        if len(rows) == 0:
+            return np.zeros(len(permnos), bool)
+        a = R.names_asof(spells, days[rows[-1]], permnos)
+        ok = U._share_filter(a, share_filter).to_numpy(bool)
+        return np.isin(permnos, a["permno"].to_numpy("int64")[ok])
+    return universe
+
+
+def ggr_tables(res: G.GGRResult, periods: dict | None = None) -> dict:
+    periods = periods or ggr_periods()
+    return {"table1": G.dofaff_table1(res.monthly, periods), "table2": G.dofaff_table2(res.pairs, periods),
+            "monthly": res.monthly, "stats": res.stats}
+
+
 def run_ggr(tr: pd.DataFrame, first_start: str, last_start: str, wait: int, traded=None, dead=None,
-            permco=None, periods: dict | None = None) -> dict:
+            permco=None, periods: dict | None = None, universe=None, selection: tuple = (1, 20)) -> dict:
     """GGR rules on `tr`; returns the Do & Faff Table 1 and Table 2 statistics for `periods`. Prices are carried
     over no-price days inside a stock's life (as in the main backtest); `traded` (e.g. ``panel.fresh``) applies
     the GGR/Do & Faff formation filter that drops any stock with a day without a trade or valid return."""
     tr = pd.DataFrame(R.ffill_within_life(tr.to_numpy(float)), index=tr.index, columns=tr.columns)
-    res = G.run(tr, first_start, last_start, G.GGRConfig(wait=wait), dead=dead, traded=traded, permco=permco)
-    periods = periods or {"1962-1988": (CC.GGR_FIRST_TRADE_MONTH, "1988-12"), "1989-2002": ("1989-01", "2002-12"),
-                          "2003-2009": ("2003-01", CC.GGR_LAST_TRADE_MONTH),
-                          "full": (CC.GGR_FIRST_TRADE_MONTH, CC.GGR_LAST_TRADE_MONTH)}
-    return {"table1": G.dofaff_table1(res.monthly, periods), "table2": G.dofaff_table2(res.pairs, periods),
-            "monthly": res.monthly}
+    res = G.run(tr, first_start, last_start, G.GGRConfig(wait=wait, selection=selection), dead=dead, traded=traded,
+                permco=permco, universe=universe)
+    return ggr_tables(res, periods)
+
+
+def first_permco(raw_dir: Path, start, end) -> pd.Series:
+    """PERMNO -> PERMCO on its first ``dsf_v2`` row in [start, end], read a year at a time: what one panel over the
+    whole range gives (``Panel.permco``), which a block panel alone would not."""
+    a, b = pd.Timestamp(start), pd.Timestamp(end)
+    firsts = []
+    for y in range(a.year, b.year + 1):
+        d = R.read_chunks(raw_dir, "dsf_v2", [y], columns=["permno", "permco", "dlycaldt"])
+        d["dlycaldt"] = pd.to_datetime(d["dlycaldt"])
+        d = d[(d["dlycaldt"] >= a) & (d["dlycaldt"] <= b)].sort_values(["permno", "dlycaldt"], kind="stable")
+        firsts.append(d.groupby("permno")["permco"].first())
+    return pd.concat(firsts).groupby(level=0).first()
+
+
+def run_ggr_blocks(raw_dir: Path, names: pd.DataFrame, delist: pd.DataFrame | None, cfgs: dict,
+                   first_start: str | None = None, last_start: str | None = None, periods: dict | None = None,
+                   block_months: int = 24, lead_in_months: int = 3, lead_out_months: int = 12,
+                   share_filter: dict = GGR_SHARE_FILTER) -> dict:
+    """The GGR replication without the whole 1962-2009 panel in memory. Portfolio start months are taken
+    `block_months` at a time; each block reads its formation and trading windows (plus a lead-in and a lead-out,
+    clipped to the sample) from the chunks under `raw_dir`, builds a panel of all its stocks and runs every
+    configuration in `cfgs` (label -> GGRConfig) on it; `ggr.assemble` joins the blocks. The returns and pair
+    choices equal those of one panel over the whole sample (test_run_crsp checks this on synthetic data):
+    the formation and trading windows see the same rows, PERMCO comes from `first_permco`, and the lead-out keeps
+    a block's end from marking live stocks as delisted. Returns label -> `ggr_tables` output."""
+    first = pd.Period(first_start or CC.GGR_FIRST_TRADE_MONTH, "M")
+    last = pd.Period(last_start, "M") if last_start else pd.Period(CC.GGR_LAST_TRADE_MONTH, "M") - 5
+    fm = max(c.formation_months for c in cfgs.values())
+    tm = max(c.trading_months for c in cfgs.values())
+    g0 = (first - fm).start_time
+    g1 = (last + tm).start_time - pd.Timedelta(days=1)
+    permco = first_permco(raw_dir, g0, g1)
+    cols = R.panel_columns(raw_dir, GGR_COLUMNS)
+    starts = pd.period_range(first, last, freq="M")
+    parts: dict[str, list] = {k: [] for k in cfgs}
+    for i in range(0, len(starts), block_months):
+        s0, s1 = starts[i], starts[min(i + block_months, len(starts)) - 1]
+        a = max(g0, (s0 - fm).start_time - pd.DateOffset(months=lead_in_months))
+        b = min(g1, (s1 + tm).start_time - pd.Timedelta(days=1) + pd.DateOffset(months=lead_out_months))
+        log(f"GGR starts {s0}..{s1} (rows {a.date()}..{b.date()})")
+        gp = R.build_panel(R.load_dsf(raw_dir, str(a.date()), str(b.date()), columns=cols), names, delist)
+        tr = pd.DataFrame(R.ffill_within_life(gp.tr), index=gp.days, columns=gp.permnos)
+        pc = permco.reindex(gp.permnos).fillna(-1).astype("int64").to_numpy()
+        uni = ggr_share_universe(gp.days, gp.permnos, names, fm, share_filter)
+        for k, cfg in cfgs.items():
+            parts[k].append(G.run_parts(tr, str(s0), str(s1), cfg, dead=gp.dead, universe=uni, traded=gp.fresh,
+                                        permco=pc))
+        del gp, tr
+    return {k: ggr_tables(G.assemble(v), periods) for k, v in parts.items()}
 
 
 def _jsonable(o):
